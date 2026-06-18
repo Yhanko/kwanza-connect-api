@@ -6,3 +6,6 @@ __pycache__/
 *.pyd
 *.log
 *.pot
+.pytest_cache
+api-routes-postman.md
+capture_tests.py

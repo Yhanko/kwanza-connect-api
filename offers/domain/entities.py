@@ -52,8 +52,8 @@ class OfferEntity:
 
     @property
     def is_active(self) -> bool:
-        from datetime import datetime
-        if self.expires_at and self.expires_at < datetime.now():
+        from django.utils import timezone
+        if self.expires_at and self.expires_at < timezone.now():
             return False
         return self.status == 'active'
 

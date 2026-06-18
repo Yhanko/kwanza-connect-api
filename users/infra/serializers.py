@@ -5,6 +5,22 @@ Validação de dados de entrada — nenhuma informação sensível é exposta na
 from rest_framework import serializers
 from ..models import User, IdentityDocument
 
+import re
+import re
+
+def validate_angolan_name(value):
+    if not re.match(r'^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$', value):
+        raise serializers.ValidationError('O nome deve conter apenas letras.')
+    return value
+
+def validate_angolan_phone(value):
+    if not value:
+        return value
+    cleaned = value.replace(' ', '')
+    if not re.match(r'^\+2449\d{8}$', cleaned):
+        raise serializers.ValidationError('O número de telemóvel deve ser angolano, ex: +244 9XX XXX XXX.')
+    return cleaned
+
 
 # ─────────────────────────────────────────────
 #  Registo e autenticação
@@ -23,7 +39,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model  = User
         fields = [
-            'email', 'full_name', 'phone', 'country_code', 
+            'email', 'full_name', 'phone', 'country_code',
+            'province', 'municipality', 'neighborhood', 
             'password', 'password_confirm',
             'doc_type', 'doc_number', 'front_image', 'back_image'
         ]
@@ -31,8 +48,17 @@ class RegisterSerializer(serializers.ModelSerializer):
             'email':        {'required': True},
             'full_name':    {'required': True},
             'phone':        {'required': False},
+            'province':     {'required': False},
+            'municipality': {'required': False},
+            'neighborhood': {'required': False},
             'country_code': {'required': False},
         }
+
+    def validate_full_name(self, value):
+        return validate_angolan_name(value)
+
+    def validate_phone(self, value):
+        return validate_angolan_phone(value)
 
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
@@ -86,7 +112,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model  = User
         fields = [
-            'id', 'full_name', 'country_code', 'city',
+            'id', 'full_name', 'country_code', 'city', 'province', 'municipality', 'neighborhood',
             'bio', 'avatar', 'is_available', 'is_verified',
             'preferred_give_currency', 'preferred_want_currency',
             'date_joined',
@@ -113,7 +139,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model  = User
         fields = [
-            'id', 'email', 'full_name', 'phone', 'country_code',
+            'id', 'email', 'full_name', 'phone', 'country_code', 'province', 'municipality', 'neighborhood',
+            'province', 'municipality', 'neighborhood',
             'city', 'address', 'occupation', 'bio', 'avatar',
             'is_active', 'is_verified', 'is_available',
             'verification_status', 'preferred_give_currency',
@@ -138,10 +165,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
+    def validate_full_name(self, value):
+        return validate_angolan_name(value)
+
+    def validate_phone(self, value):
+        return validate_angolan_phone(value)
+
     class Meta:
         model  = User
         fields = [
-            'full_name', 'phone', 'city', 'address',
+            'full_name', 'phone', 'city', 'address', 'province', 'municipality', 'neighborhood',
             'occupation', 'bio', 'avatar',
             'preferred_give_currency', 'preferred_want_currency',
             'is_available',

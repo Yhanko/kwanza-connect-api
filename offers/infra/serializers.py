@@ -6,10 +6,14 @@ from ..models import Currency, ExchangeRate, Offer, OfferInterest, OfferView
 from users.infra.serializers import PublicUserSerializer
 
 
-class CurrencySerializer(serializers.ModelSerializer):
-    class Meta:
-        model  = Currency
-        fields = ['id', 'code', 'name', 'symbol', 'flag_emoji', 'is_active']
+class CurrencySerializer(serializers.Serializer):
+    """Funciona com CurrencyEntity (dataclass) e com objetos Django ORM."""
+    id         = serializers.UUIDField()
+    code       = serializers.CharField()
+    name       = serializers.CharField()
+    symbol     = serializers.CharField()
+    flag_emoji = serializers.CharField()
+    is_active  = serializers.BooleanField()
 
 
 class ExchangeRateSerializer(serializers.ModelSerializer):
@@ -41,24 +45,66 @@ class OfferCreateSerializer(serializers.Serializer):
 
 
 
-class OfferSerializer(serializers.ModelSerializer):
-    owner         = PublicUserSerializer(read_only=True)
-    give_currency = CurrencySerializer(read_only=True)
-    want_currency = CurrencySerializer(read_only=True)
-    spread_percentage = serializers.FloatField(read_only=True)
-    is_active     = serializers.BooleanField(read_only=True)
+class OfferSerializer(serializers.Serializer):
+    """
+    Serializer que funciona com OfferEntity (dataclass) e com objetos Django ORM.
+    """
+    id                      = serializers.UUIDField()
+    give_amount             = serializers.DecimalField(max_digits=24, decimal_places=2)
+    want_amount             = serializers.DecimalField(max_digits=24, decimal_places=2)
+    exchange_rate_snapshot  = serializers.DecimalField(max_digits=24, decimal_places=8)
+    implied_rate            = serializers.DecimalField(max_digits=24, decimal_places=8, allow_null=True)
+    spread_percentage       = serializers.SerializerMethodField()
+    offer_type              = serializers.CharField()
+    status                  = serializers.CharField()
+    is_active               = serializers.BooleanField()
+    notes                   = serializers.CharField()
+    city                    = serializers.CharField()
+    country_code            = serializers.CharField()
+    views_count             = serializers.IntegerField()
+    expires_at              = serializers.DateTimeField(allow_null=True)
+    created_at              = serializers.DateTimeField(allow_null=True)
+    updated_at              = serializers.DateTimeField(allow_null=True)
+    owner                   = serializers.SerializerMethodField()
+    give_currency           = serializers.SerializerMethodField()
+    want_currency           = serializers.SerializerMethodField()
 
-    class Meta:
-        model  = Offer
-        fields = [
-            'id', 'owner',
-            'give_currency', 'give_amount',
-            'want_currency', 'want_amount',
-            'exchange_rate_snapshot', 'implied_rate', 'spread_percentage',
-            'offer_type', 'status', 'is_active',
-            'notes', 'city', 'country_code',
-            'views_count', 'expires_at', 'created_at', 'updated_at',
-        ]
+    def get_spread_percentage(self, obj):
+        try:
+            return obj.spread_percentage
+        except Exception:
+            return None
+
+    def get_owner(self, obj):
+        owner = getattr(obj, 'owner', None)
+        if owner is None:
+            return None
+        from users.infra.serializers import PublicUserSerializer
+        # Suporta tanto entidade como objeto ORM
+        if hasattr(owner, '__dict__') or hasattr(owner, 'id'):
+            try:
+                return PublicUserSerializer(owner).data
+            except Exception:
+                return None
+        return None
+
+    def get_give_currency(self, obj):
+        currency = getattr(obj, 'give_currency', None)
+        if currency is None:
+            return None
+        try:
+            return CurrencySerializer(currency).data
+        except Exception:
+            return None
+
+    def get_want_currency(self, obj):
+        currency = getattr(obj, 'want_currency', None)
+        if currency is None:
+            return None
+        try:
+            return CurrencySerializer(currency).data
+        except Exception:
+            return None
 
 
 class OfferInterestCreateSerializer(serializers.ModelSerializer):

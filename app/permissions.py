@@ -40,3 +40,15 @@ class IsRoomMember(BasePermission):
     def has_object_permission(self, request, view, obj):
         # obj é um Room
         return obj.members.filter(user=request.user).exists()
+
+
+class IsAdminUser(BasePermission):
+    """Apenas administradores (staff ou superuser)."""
+    message = 'Acesso negado. Apenas administradores podem realizar esta acção.'
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            request.user.is_staff
+        )

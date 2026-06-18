@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import Optional, Dict, Any
 from ..domain.entities import AuditLogEntity
 from ..domain.interfaces import IAuditRepository
@@ -10,11 +11,20 @@ class RegisterAuditLogUseCase:
         self.repository = repository
 
     def execute(self, action: str, resource: str, user_id=None, resource_id=None, metadata=None, ip_address=None, user_agent=None) -> Optional[AuditLogEntity]:
-        # Filtro de campos sensíveis para evitar fugas de informação
         sensitive_fields = ['password', 'password_confirm', 'current_password', 'new_password', 'token', 'access', 'refresh']
         safe_metadata = {}
         if metadata:
-            safe_metadata = {k: (v if k not in sensitive_fields else '********') for k, v in metadata.items()}
+            for k, v in metadata.items():
+                if k in sensitive_fields:
+                    safe_metadata[k] = '********'
+                elif isinstance(v, uuid.UUID):
+                    safe_metadata[k] = str(v)
+                else:
+                    safe_metadata[k] = v
+        
+        # Garantir que o resource_id é uma string para não falhar no CharField
+        if resource_id is not None:
+            resource_id = str(resource_id)
 
         # Criar a entidade
         audit_log = AuditLogEntity(

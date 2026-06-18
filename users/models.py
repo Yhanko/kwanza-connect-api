@@ -49,6 +49,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     country_code        = models.CharField(max_length=5, default='AO')   # ISO 3166-1 alpha-2
     city                = models.CharField(max_length=100, blank=True)
     address             = models.CharField(max_length=255, blank=True)
+    province            = models.CharField(max_length=100, blank=True)
+    municipality        = models.CharField(max_length=100, blank=True)
+    neighborhood        = models.CharField(max_length=255, blank=True)
     occupation          = models.CharField(max_length=100, blank=True)
     bio                 = models.TextField(max_length=300, blank=True)
     avatar              = models.ImageField(upload_to=avatar_upload_path, null=True, blank=True, max_length=500)

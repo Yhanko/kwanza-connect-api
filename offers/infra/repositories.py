@@ -177,18 +177,28 @@ class DjangoOfferRepository(IOfferRepository):
                     'expires_at': offer.expires_at,
                 }
             )
+            # Recarrega com relações para garantir que owner, give_currency e
+            # want_currency estão disponíveis na entidade retornada
+            django_offer = DjangoOffer.objects.select_related(
+                'owner', 'give_currency', 'want_currency'
+            ).get(id=django_offer.id)
             return self._offer_to_entity(django_offer)
 
     def get_offer_by_id(self, offer_id: uuid.UUID) -> Optional[OfferEntity]:
         try:
-            return self._offer_to_entity(DjangoOffer.objects.get(id=offer_id))
+            return self._offer_to_entity(
+                DjangoOffer.objects.select_related('owner', 'give_currency', 'want_currency').get(id=offer_id)
+            )
         except DjangoOffer.DoesNotExist:
             return None
 
     def get_offer_by_id_for_update(self, offer_id: uuid.UUID) -> Optional[OfferEntity]:
         try:
             # Bloqueio de base de dados para evitar condições de corrida (select_for_update)
-            return self._offer_to_entity(DjangoOffer.objects.select_for_update().get(id=offer_id))
+            return self._offer_to_entity(
+                DjangoOffer.objects.select_related('owner', 'give_currency', 'want_currency')
+                .select_for_update().get(id=offer_id)
+            )
         except DjangoOffer.DoesNotExist:
             return None
 
@@ -205,8 +215,11 @@ class DjangoOfferRepository(IOfferRepository):
         if max_amount := filters.get('max_amount'):
             qs = qs.filter(give_amount__lte=max_amount)
         
-        # Exclude expired
-        final_qs = qs.exclude(expires_at__lt=timezone.now())
+        # Só mostra ofertas não expiradas (expires_at=None OU ainda no futuro)
+        from django.db.models import Q
+        final_qs = qs.filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gte=timezone.now())
+        )
         return [self._offer_to_entity(o) for o in final_qs]
 
     def save_interest(self, interest: OfferInterestEntity) -> OfferInterestEntity:

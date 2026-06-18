@@ -8,18 +8,19 @@ class DjangoChatService(IChatService):
         
         # Procura uma sala existente (direct ou offer) entre estes dois utilizadores
         # Evitamos criar múltiplas salas para o mesmo par de pessoas
-        rooms_owner = RoomMember.objects.filter(user_id=owner_id).values_list('room_id', flat=True)
         existing_room = Room.objects.filter(
-            id__in=rooms_owner,
+            members__user_id=owner_id
+        ).filter(
             members__user_id=buyer_id
-        ).exclude(status='closed').distinct().first()
+        ).first()
 
 
 
         if existing_room:
-            # Reutiliza a sala existente
+            # Reutiliza a sala existente e reactiva-a se estava fechada
             existing_room.offer_id = offer_id
-            existing_room.save(update_fields=['offer_id'])
+            existing_room.status = 'active'
+            existing_room.save(update_fields=['offer_id', 'status'])
             
             # Regista o novo interesse na sala existente
             RoomEvent.objects.create(
