@@ -51,5 +51,7 @@ class GetPlatformStatsUseCase:
             'active_offers': stats.active_offers,
             'total_users': stats.total_users,
             'successful_deals': stats.successful_deals,
-            'top_currencies': stats.top_currencies
+            'top_currencies': stats.top_currencies,
+            'daily_active_traders': stats.daily_active_traders,
+            'available_currencies': stats.available_currencies
         }

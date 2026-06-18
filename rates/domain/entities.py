@@ -17,3 +17,5 @@ class PlatformStatsEntity:
     total_users: int
     successful_deals: int
     top_currencies: list
+    daily_active_traders: int = 0
+    available_currencies: list = field(default_factory=list)

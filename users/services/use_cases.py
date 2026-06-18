@@ -319,54 +319,33 @@ class SubmitKYCUseCase:
         self.repository.save(user)
 
 class ForgotPasswordUseCase:
-    def __init__(self, repository: IUserRepository, email_service: IEmailService):
+    def __init__(self, repository: IUserRepository, email_service: IEmailService = None):
         self.repository = repository
-        self.email_service = email_service
+        # Email service ignored for MVP bypass
 
     def execute(self, email: str) -> None:
         user = self.repository.get_by_email(email)
         if not user:
-            return # Não expor se o email existe ou não por segurança em produção
-        
-        security = self.repository.get_security_by_user_id(user.id)
-        if not security:
-            return
-
-        token = secrets.token_urlsafe(32)
-        security.password_reset_token = hashlib.sha256(token.encode()).hexdigest()
-        from django.utils import timezone
-        security.password_reset_expires = timezone.now() + timedelta(hours=2)
-        self.repository.update_security(security)
-
-        self.email_service.send_email(
-            subject="Recuperação de Senha — KwanzaConnect",
-            body=f"Olá {user.full_name},\n\nUtilize este token para redefinir a sua senha: {token}\nExpira em 2 horas.",
-            recipient=user.email
-        )
+            raise ValidationError({'email': 'Este e-mail não está registado na plataforma.'})
+        # For this MVP, we just confirm the email exists so the frontend can proceed.
 
 class ResetPasswordUseCase:
     def __init__(self, repository: IUserRepository):
         self.repository = repository
 
-    def execute(self, token: str, new_password: str) -> None:
-        hashed = hashlib.sha256(token.encode()).hexdigest()
-        security = self.repository.get_security_by_reset_token(hashed)
-        
-        if not security:
-             raise ValidationError('Token de recuperação inválido ou expirado.')
+    def execute(self, email: str, new_password: str) -> None:
+        user = self.repository.get_by_email(email)
+        if not user:
+             raise ValidationError('Conta não encontrada.')
 
-        from django.utils import timezone
-        if security.password_reset_expires and security.password_reset_expires < timezone.now():
-             raise ValidationError('O token de recuperação expirou.')
-
-        # Atualizar senha no model Django (devido ao hash)
+        # Atualizar senha no model Django
         from ..models import User
-        django_user = User.objects.get(id=security.user_id)
+        django_user = User.objects.get(id=user.id)
         django_user.set_password(new_password)
         django_user.save(update_fields=['password'])
 
-        # Limpar token
-        security.password_reset_token = ""
-        security.password_reset_expires = None
-        security.password_changed_at = timezone.now()
-        self.repository.update_security(security)
+        from django.utils import timezone
+        security = self.repository.get_security_by_user_id(user.id)
+        if security:
+            security.password_changed_at = timezone.now()
+            self.repository.update_security(security)

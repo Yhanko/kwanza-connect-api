@@ -176,9 +176,9 @@ class ForgotPasswordView(APIView):
         
         # Auditoria
         audit_log(action='USER_FORGOT_PASSWORD', resource='users', metadata={'email': serializer.validated_data['email']}, request=request)
-        
+        # O UseCase já lança ValidationError se o email não existir neste MVP
         return success_response(
-            message='Se o email existir na plataforma, receberá um link de reset em breve.'
+            message='E-mail confirmado. Pode inserir a sua nova senha agora.'
         )
 
 
@@ -190,22 +190,22 @@ class ResetPasswordView(APIView):
         repo = DjangoUserRepository()
         serializer = ResetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        token = serializer.validated_data['token']
+        email = serializer.validated_data['email']
         
         # Log de tentativa
-        audit_log(action='USER_RESET_PASSWORD_ATTEMPT', resource='users', metadata={'token': token}, request=request)
+        audit_log(action='USER_RESET_PASSWORD_ATTEMPT', resource='users', metadata={'email': email}, request=request)
         
         try:
             ResetPasswordUseCase(repo).execute(
-                token=token,
+                email=email,
                 new_password=serializer.validated_data['new_password'],
             )
             # Log de Sucesso
-            audit_log(action='USER_RESET_PASSWORD_SUCCESS', resource='users', metadata={'token': token}, request=request)
+            audit_log(action='USER_RESET_PASSWORD_SUCCESS', resource='users', metadata={'email': email}, request=request)
             return success_response(message='Senha alterada com sucesso. Já pode fazer login.')
         except Exception as e:
             # Log de Falha
-            audit_log(action='USER_RESET_PASSWORD_FAILURE', resource='users', metadata={'token': token, 'error': str(e)}, request=request)
+            audit_log(action='USER_RESET_PASSWORD_FAILURE', resource='users', metadata={'email': email, 'error': str(e)}, request=request)
             raise e
 
 
