@@ -95,7 +95,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 
 class ResetPasswordSerializer(serializers.Serializer):
-    token            = serializers.CharField()
+    email            = serializers.EmailField()
     new_password     = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True)
 
@@ -142,12 +142,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'email', 'full_name', 'phone', 'country_code', 'province', 'municipality', 'neighborhood',
             'province', 'municipality', 'neighborhood',
             'city', 'address', 'occupation', 'bio', 'avatar',
-            'is_active', 'is_verified', 'is_available',
+            'is_active', 'is_verified', 'is_available', 'is_staff',
             'verification_status', 'preferred_give_currency',
             'preferred_want_currency', 'last_seen', 'date_joined',
         ]
         read_only_fields = [
-            'id', 'email', 'is_active', 'is_verified',
+            'id', 'email', 'is_active', 'is_verified', 'is_staff',
             'verification_status', 'last_seen', 'date_joined',
         ]
 

@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema
 from app.permissions import IsAdminUser
 from users.models import User
 from offers.models import Offer
-from audit.models import AuditLog
+from audit.infra.models import AuditLog
 from app.exceptions import success_response
 
 class AdminDashboardStatsView(APIView):
@@ -39,7 +39,7 @@ class AdminAuditLogsView(APIView):
     @extend_schema(tags=['Admin - Dashboard'])
     def get(self, request):
         from app.pagination import StandardPagination
-        qs = AuditLog.objects.all().order_by('-created_at')
+        qs = AuditLog.objects.all().order_by('-timestamp')
         
         paginator = StandardPagination()
         page = paginator.paginate_queryset(qs, request)
@@ -52,7 +52,7 @@ class AdminAuditLogsView(APIView):
             'resource_id': log.resource_id,
             'user_id': log.user_id,
             'ip_address': log.ip_address,
-            'created_at': log.created_at
+            'created_at': log.timestamp
         } for log in page]
         
         return paginator.get_paginated_response(data)

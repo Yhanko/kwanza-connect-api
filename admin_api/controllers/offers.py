@@ -5,7 +5,8 @@ from app.permissions import IsAdminUser
 from offers.models import Offer, OfferInterest
 from offers.infra.serializers import OfferSerializer
 from app.pagination import StandardPagination
-from app.exceptions import success_response, NotFound, ValidationError
+from app.exceptions import success_response
+from rest_framework.exceptions import NotFound, ValidationError
 from app.audit_service import audit_log
 from django.db.models import Q
 
