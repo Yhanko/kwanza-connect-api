@@ -245,7 +245,7 @@ class UpdateProfileUseCase:
             raise NotFound('Utilizador não encontrado.')
             
         allowed = {
-            'full_name', 'phone', 'city', 'address', 'occupation',
+            'full_name', 'phone', 'city', 'address', 'province', 'municipality', 'neighborhood', 'occupation',
             'bio', 'avatar', 'preferred_give_currency',
             'preferred_want_currency', 'is_available',
         }

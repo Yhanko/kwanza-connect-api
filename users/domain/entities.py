@@ -59,6 +59,9 @@ class UserEntity:
     country_code: str = "AO"
     city: str = ""
     address: str = ""
+    province: str = ""
+    municipality: str = ""
+    neighborhood: str = ""
     occupation: str = ""
     bio: str = ""
     avatar: Optional[Any] = None
