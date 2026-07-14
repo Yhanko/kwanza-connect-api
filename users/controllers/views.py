@@ -101,6 +101,10 @@ class LoginView(APIView):
             audit_repo = DjangoAuditRepository()
             tokens = LoginUseCase(repo, audit_repo).execute(email=email, password=password)
             
+            # Serialize the user to include profile fields
+            user_model = tokens.pop('user')
+            tokens['user'] = UserProfileSerializer(user_model).data
+
             # Log de Sucesso
             audit_log(
                 action='USER_LOGIN_SUCCESS', 
@@ -325,9 +329,6 @@ class KYCStatusView(APIView):
         }
         if hasattr(request.user, 'identity_document'):
             doc = request.user.identity_document
-            data['document'] = {
-                'status':           doc.status,
-                'rejection_reason': doc.rejection_reason or None,
-                'submitted_at':     doc.submitted_at,
-            }
+            from ..infra.serializers import IdentityDocumentSerializer
+            data['document'] = IdentityDocumentSerializer(doc).data
         return success_response(data=data)

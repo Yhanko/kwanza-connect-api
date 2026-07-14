@@ -204,6 +204,18 @@ class DjangoOfferRepository(IOfferRepository):
 
     def list_offers(self, filters: dict) -> List[OfferEntity]:
         qs = DjangoOffer.objects.filter(status='active').select_related('owner', 'give_currency', 'want_currency')
+        
+        from django.db.models import Q
+        
+        if search := filters.get('search'):
+            # Pesquisa por nome do publicador ou código das moedas
+            qs = qs.filter(
+                Q(owner__full_name__icontains=search) |
+                Q(give_currency__code__icontains=search) |
+                Q(want_currency__code__icontains=search) |
+                Q(city__icontains=search)
+            )
+            
         if give := filters.get('give_currency'):
             qs = qs.filter(give_currency__code__iexact=give)
         if want := filters.get('want_currency'):
@@ -215,8 +227,14 @@ class DjangoOfferRepository(IOfferRepository):
         if max_amount := filters.get('max_amount'):
             qs = qs.filter(give_amount__lte=max_amount)
         
+        # Ordenação (os mais recentes por defeito)
+        order = filters.get('order', '-created_at')
+        if order in ['created_at', '-created_at', 'give_amount', '-give_amount']:
+            qs = qs.order_by(order)
+        else:
+            qs = qs.order_by('-created_at')
+        
         # Só mostra ofertas não expiradas (expires_at=None OU ainda no futuro)
-        from django.db.models import Q
         final_qs = qs.filter(
             Q(expires_at__isnull=True) | Q(expires_at__gte=timezone.now())
         )

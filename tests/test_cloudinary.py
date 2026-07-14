@@ -22,10 +22,10 @@ def test_cloudinary():
     try:
         url = storage.upload(test_content, "test-file", folder="tests")
         print(f"Sucesso! Ficheiro carregado em: {url}")
-        return True
+        assert url is not None
     except Exception as e:
         print(f"Erro no Cloudinary: {e}")
-        return False
+        assert False, f"Upload falhou: {e}"
 
 if __name__ == "__main__":
     test_cloudinary()

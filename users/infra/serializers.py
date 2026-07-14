@@ -109,27 +109,67 @@ class ResetPasswordSerializer(serializers.Serializer):
 class PublicUserSerializer(serializers.ModelSerializer):
     """Perfil público — exposto a outros utilizadores."""
     avatar = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    reviews_count = serializers.SerializerMethodField()
+    recent_reviews = serializers.SerializerMethodField()
+
     class Meta:
         model  = User
         fields = [
-            'id', 'full_name', 'country_code', 'city', 'province', 'municipality', 'neighborhood',
+            'id', 'full_name', 'email', 'phone', 'country_code', 'city', 'province', 'municipality', 'neighborhood',
             'bio', 'avatar', 'is_available', 'is_verified',
             'preferred_give_currency', 'preferred_want_currency',
-            'date_joined',
+            'date_joined', 'average_rating', 'reviews_count', 'recent_reviews'
         ]
         read_only_fields = fields
 
     def get_avatar(self, obj):
-        # Suporta tanto Model (obj.avatar.url) como Entity (obj.avatar como string)
         avatar = getattr(obj, 'avatar', None)
         if not avatar:
             return None
         if isinstance(avatar, str):
             return avatar
+        
+        avatar_str = str(avatar)
+        if avatar_str.startswith('http'):
+            return avatar_str
+            
         try:
             return avatar.url
         except Exception:
             return None
+
+    def get_average_rating(self, obj):
+        from django.db.models import Avg
+        from transactions.models import TransactionReview
+        try:
+            avg = TransactionReview.objects.filter(reviewed_id=obj.id).aggregate(Avg('rating'))['rating__avg']
+            return round(avg, 1) if avg else 0.0
+        except Exception:
+            return 0.0
+
+    def get_reviews_count(self, obj):
+        from transactions.models import TransactionReview
+        try:
+            return TransactionReview.objects.filter(reviewed_id=obj.id).count()
+        except Exception:
+            return 0
+
+    def get_recent_reviews(self, obj):
+        from transactions.models import TransactionReview
+        try:
+            reviews = TransactionReview.objects.filter(reviewed_id=obj.id).select_related('reviewer').order_by('-created_at')[:3]
+            return [
+                {
+                    'id': str(r.id),
+                    'rating': r.rating,
+                    'comment': r.comment,
+                    'reviewer_name': r.reviewer.full_name,
+                    'created_at': r.created_at
+                } for r in reviews
+            ]
+        except Exception:
+            return []
 
 
 
@@ -157,6 +197,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return None
         if isinstance(avatar, str):
             return avatar
+            
+        avatar_str = str(avatar)
+        if avatar_str.startswith('http'):
+            return avatar_str
+            
         try:
             return avatar.url
         except Exception:
@@ -211,6 +256,11 @@ class IdentityDocumentSerializer(serializers.ModelSerializer):
             return None
         if isinstance(file_field, str):
             return file_field
+            
+        file_str = str(file_field)
+        if file_str.startswith('http'):
+            return file_str
+            
         try:
             return file_field.url
         except Exception:

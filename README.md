@@ -56,13 +56,25 @@ Cada módulo (`users`, `offers`, `chat`, `notifications`, `rates`, `transactions
 ## 🧪 Testes e Qualidade
 A API conta com uma suíte de testes automatizados utilizando `pytest` e `pytest-django`.
 
-**Executar todos os testes:**
+**Executar todos os testes da aplicação:**
 ```bash
-# Ativar o ambiente virtual
+# 1. Ativar o ambiente virtual (Windows)
 .\venv\Scripts\activate
 
-# Executar a suíte completa
-pytest
+# 2. Executar a suíte completa com detalhes verbosos
+pytest -v
+```
+
+**Executar testes por categorias ou módulos (Exemplos):**
+```bash
+# Apenas os testes unitários de um módulo específico (ex: users)
+pytest users/tests/unit/ -v
+
+# Todos os testes unitários (lógica de negócio isolada)
+pytest users/tests/unit offers/tests/unit chat/tests/unit transactions/tests/unit -v
+
+# Apenas os testes end-to-end (e2e - Integração com DB e API)
+pytest users/tests/e2e/ -v
 ```
 
 **Módulos Cobertos:**

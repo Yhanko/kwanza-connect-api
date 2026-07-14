@@ -3,18 +3,13 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 from app.permissions import IsAdminUser
 from users.models import User, IdentityDocument
-from users.infra.serializers import UserProfileSerializer as UserSerializer
+from users.infra.serializers import UserProfileSerializer as UserSerializer, IdentityDocumentSerializer
 from app.pagination import StandardPagination
 from app.exceptions import success_response
 from rest_framework.exceptions import NotFound, ValidationError
 from app.audit_service import audit_log
 from django.db.models import Q
 from rest_framework import serializers
-
-class IdentityDocumentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = IdentityDocument
-        fields = '__all__'
 
 class AdminUserListSerializer(UserSerializer):
     identity_document = IdentityDocumentSerializer(read_only=True)

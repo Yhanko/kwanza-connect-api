@@ -14,8 +14,21 @@ from rest_framework.exceptions import AuthenticationFailed, ValidationError, Not
 
 from ..domain.entities import UserEntity, UserSecurityEntity, IdentityDocumentEntity
 from ..domain.interfaces import IUserRepository
+from notifications.services.notification_service import NotificationService
+from notifications.models import NotificationType
 from ..infra.email_service import IEmailService
 from app.services.storage import IStorageService
+
+import re
+
+def validate_angolan_bi(bi_number: str) -> None:
+    if not bi_number:
+        return
+    # Regex: 9 digits, 2 letters (províncias válidas), 3 digits
+    province_codes = "BE|BG|BI|CB|CC|CN|CS|CU|CE|HA|HL|IB|LA|LN|LS|ML|MO|ME|NB|UG|ZR"
+    pattern = rf'^\d{{9}}({province_codes})\d{{3}}$'
+    if not re.match(pattern, bi_number, re.IGNORECASE):
+        raise ValidationError({'doc_number': 'O número de BI angolano é inválido ou a província não existe. Ex: 002367037LA033'})
 
 from audit.domain.interfaces import IAuditRepository
 from audit.services.use_cases import RegisterAuditLogUseCase
@@ -34,7 +47,8 @@ class RegisterUserUseCase:
         # Filtragem de kwargs para evitar TypeError na UserEntity
         valid_user_fields = {
             'phone', 'country_code', 'city', 'address', 'occupation', 
-            'bio', 'avatar', 'preferred_give_currency', 'preferred_want_currency'
+            'bio', 'avatar', 'preferred_give_currency', 'preferred_want_currency',
+            'province', 'municipality', 'neighborhood'
         }
         user_kwargs = {k: v for k, v in kwargs.items() if k in valid_user_fields}
 
@@ -63,6 +77,10 @@ class RegisterUserUseCase:
         back_image  = kwargs.get('back_image')
 
         if doc_type and doc_number:
+            if doc_type == 'bi':
+                validate_angolan_bi(doc_number)
+                doc_number = doc_number.upper()
+
             # Upload das imagens se fornecidas (buffer ou arquivo vindo da view)
             front_url = ""
             back_url  = ""
@@ -113,6 +131,12 @@ class RegisterUserUseCase:
             user_id=user.id,
             resource_id=str(user.id),
             metadata={'email': email, 'kyc': 'submitted' if doc_type else 'pending'}
+        )
+
+        # Notificar admins
+        NotificationService.notify_admins(
+            notification_type=NotificationType.NEW_USER_REGISTRATION,
+            actor=user
         )
 
         return {
@@ -183,6 +207,7 @@ class LoginUseCase:
         return {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
+            'user': django_user
         }
 
 class VerifyEmailUseCase:
@@ -265,7 +290,15 @@ class UpdateProfileUseCase:
         for attr, val in update.items():
             setattr(user, attr, val)
             
-        return self.repository.save(user)
+        saved_user = self.repository.save(user)
+        
+        # Notificar admins
+        NotificationService.notify_admins(
+            notification_type=NotificationType.USER_PROFILE_UPDATED,
+            actor=saved_user
+        )
+        
+        return saved_user
 
 class SubmitKYCUseCase:
     def __init__(self, repository: IUserRepository, storage_service: IStorageService = None):
@@ -295,6 +328,13 @@ class SubmitKYCUseCase:
                      folder="kyc"
                  )
 
+        # Validação do BI angolano
+        doc_type = doc_data.get('doc_type', '')
+        doc_number = doc_data.get('doc_number', '')
+        if doc_type == 'bi':
+            validate_angolan_bi(doc_number)
+            doc_data['doc_number'] = doc_number.upper()
+
         # Criação/Atualização da entidade de documento
         existing_doc = self.repository.get_kyc_document_by_user_id(user_id)
         if existing_doc:
@@ -317,6 +357,12 @@ class SubmitKYCUseCase:
 
         user.verification_status = 'submitted'
         self.repository.save(user)
+        
+        # Notificar admins
+        NotificationService.notify_admins(
+            notification_type=NotificationType.KYC_SUBMITTED,
+            actor=user
+        )
 
 class ForgotPasswordUseCase:
     def __init__(self, repository: IUserRepository, email_service: IEmailService = None):

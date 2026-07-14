@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from django.utils import timezone
 from typing import Optional, List, Any
 import uuid
 
@@ -41,7 +42,7 @@ class UserSecurityEntity:
     password_reset_expires: Optional[datetime] = None
 
     def is_locked(self) -> bool:
-        if self.locked_until and self.locked_until > datetime.now():
+        if self.locked_until and self.locked_until > timezone.now():
             return True
         return False
 
