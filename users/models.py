@@ -124,7 +124,7 @@ class IdentityDocument(models.Model):
         User, on_delete=models.CASCADE, related_name='identity_document'
     )
     doc_type     = models.CharField(max_length=15, choices=DOC_TYPE)
-    doc_number   = models.CharField(max_length=50)
+    doc_number   = models.CharField(max_length=50, unique=True)
     doc_country  = models.CharField(max_length=5, default='AO')
 
     # Imagens ou PDF — obrigatório pelo menos frente + verso OU pdf
