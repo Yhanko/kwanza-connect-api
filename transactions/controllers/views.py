@@ -143,3 +143,88 @@ class ReviewListView(APIView):
         reviews = use_case.execute(user_id=user_uuid)
         serializer = TransactionReviewSerializer(reviews, many=True)
         return success_response(data=serializer.data)
+
+
+class TopLocationsMetricsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=['Métricas'])
+    def get(self, request):
+        from django.db.models import Count
+        from ..models import Transaction
+        
+        # Filtrar apenas transacções concluídas
+        qs = Transaction.objects.filter(status='completed')
+        
+        # Agrupar pela cidade da oferta e contar
+        metrics = qs.exclude(offer__city__isnull=True).exclude(offer__city='').values('offer__city').annotate(
+            exchanges=Count('id')
+        ).order_by('-exchanges')[:10]
+        
+        data = [
+            {
+                "city": item['offer__city'],
+                "exchanges": item['exchanges']
+            } for item in metrics
+        ]
+        
+        return success_response(data=data, message='Métricas de localizações de topo.')
+
+
+class TopPaymentMethodsMetricsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=['Métricas'])
+    def get(self, request):
+        import re
+        from collections import Counter
+        from offers.models import Offer
+
+        # Palavras-chave de plataformas/bancos com alias
+        # A chave é o padrão Regex, o valor é o nome oficial
+        platforms_map = {
+            'PayPal': 'PayPal',
+            'Wise': 'Wise',
+            'Revolut': 'Revolut',
+            'Binance': 'Binance',
+            'Biance': 'Binance',  # erro comum
+            'Unitel Money': 'Unitel Money',
+            'M-Pesa': 'M-Pesa',
+            'Transferência Bancária': 'Transferência Bancária',
+            'BAI': 'BAI',
+            'BFA': 'BFA',
+            'BIC': 'BIC',
+            'Keve': 'Keve',
+            'PayPay': 'PayPay',
+            'AfriMoney': 'AfriMoney',
+            'Multicaixa': 'Multicaixa',
+            'Express': 'Multicaixa Express',
+            'BPA': 'BPA',
+            'Atlantico': 'Atlantico',
+            'Bybit': 'Bybit'
+        }
+
+        # Expressões regulares pre-compiladas, ignorando maiúsculas/minúsculas
+        patterns = {p: re.compile(re.escape(p), re.IGNORECASE) for p in platforms_map.keys()}
+        counter = Counter()
+
+        # Obter todas as notas das ofertas publicadas
+        qs = Offer.objects.exclude(notes__isnull=True).exclude(notes='')
+        
+        # Iterar e extrair menções
+        for offer in qs:
+            notes = offer.notes
+            if not notes:
+                continue
+            for pattern_name, regex in patterns.items():
+                if regex.search(notes):
+                    official_name = platforms_map[pattern_name]
+                    counter[official_name] += 1
+
+        # Formatar para o gráfico: lista de dicionários ordenada
+        data = [
+            {"method": method, "count": count} 
+            for method, count in counter.most_common(10)
+        ]
+
+        return success_response(data=data, message='Métricas de métodos de pagamento de topo.')

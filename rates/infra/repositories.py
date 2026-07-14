@@ -7,15 +7,22 @@ from transactions.models import Transaction
 from users.models import User
 from ..domain.entities import PlatformStatsEntity
 from ..domain.interfaces import IRatesRepository
+from django.core.cache import cache
 
 class DjangoRatesRepository(IRatesRepository):
     
     def get_exchange_rate(self, from_code: str, to_code: str) -> Optional[Decimal]:
+        cache_key = f"rate_{from_code}_{to_code}".lower()
+        cached_rate = cache.get(cache_key)
+        if cached_rate is not None:
+            return Decimal(str(cached_rate))
+            
         try:
             rate = ExchangeRate.objects.get(
                 from_currency__code__iexact=from_code,
                 to_currency__code__iexact=to_code
             )
+            cache.set(cache_key, str(rate.rate), timeout=60 * 60) # 1 hour timeout, updated by celery
             return rate.rate
         except ExchangeRate.DoesNotExist:
             return None
@@ -62,10 +69,19 @@ class DjangoRatesRepository(IRatesRepository):
         )
 
     def list_all_rates(self) -> List[Dict]:
+        cache_key = "all_exchange_rates"
+        cached_rates = cache.get(cache_key)
+        
+        if cached_rates is not None:
+            return cached_rates
+            
         rates = ExchangeRate.objects.select_related('from_currency', 'to_currency').all()
-        return [{
+        result = [{
             'from': r.from_currency.code,
             'to': r.to_currency.code,
             'rate': r.rate,
             'fetched_at': r.fetched_at
         } for r in rates]
+        
+        cache.set(cache_key, result, timeout=60 * 60)
+        return result
