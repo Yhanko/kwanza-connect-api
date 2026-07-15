@@ -252,19 +252,13 @@ class DjangoUserRepository(IUserRepository):
             return None
         
         try:
-            url = file_field.url
-            # Se for um link absoluto mas o Django prefixou com /media/ (ex: /media/https://...)
-            # Removemos o prefixo para retornar o URL limpo da nuvem
-            from django.conf import settings
-            media_url = getattr(settings, 'MEDIA_URL', '/media/')
-            if url.startswith(media_url) and ('http://' in url or 'https://' in url):
-                url = url.replace(media_url, '', 1)
-
-            # Se já for um URL absoluto (Cloudinary), retorna
-            if url.startswith(('http://', 'https://')):
-                return url
+            # Se for um URL externo gravado diretamente (ex: Cloudinary)
+            if file_field.name and file_field.name.startswith(('http://', 'https://')):
+                return file_field.name
                 
-            # Fallback para local
+            url = file_field.url
+            # Fallback para ficheiros guardados localmente
+            from django.conf import settings
             base_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
             return f"{base_url.rstrip('/')}{url}"
         except Exception:

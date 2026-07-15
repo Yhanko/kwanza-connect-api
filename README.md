@@ -146,7 +146,12 @@ python manage.py migrate
 python manage.py runserver
 
 # 4. Iniciar o Worker do Celery (em outro terminal)
-celery -A app worker -l info
+# NOTA: No Windows é necessário usar o argumento --pool=solo
+celery -A app worker -l info --pool=solo
+
+# 5. Iniciar o Celery Beat para agendar tarefas periódicas (em outro terminal)
+# Responsável por atualizar taxas de câmbio, expirar ofertas e limpar logs antigos
+celery -A app beat -l info
 ```
 
 ---

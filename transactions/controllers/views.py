@@ -17,6 +17,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 class TransactionListView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = TransactionSerializer
 
     @extend_schema(tags=['Transações'])
     def get(self, request):
@@ -28,12 +29,13 @@ class TransactionListView(APIView):
         
         paginator  = StandardPagination()
         page       = paginator.paginate_queryset(txs, request)
-        serializer = TransactionSerializer(page, many=True)
+        serializer = self.serializer_class(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 
 class TransactionConfirmView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = TransactionCreateSerializer
 
     @extend_schema(request=TransactionCreateSerializer, tags=['Transações'])
     def post(self, request):

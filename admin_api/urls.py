@@ -2,6 +2,7 @@ from django.urls import path
 from .controllers.users import AdminUsersView, AdminUserDetailsView, AdminUserKYCView, AdminUserStatusView
 from .controllers.offers import AdminOffersView, AdminOfferActionView
 from .controllers.dashboard import AdminDashboardStatsView, AdminAuditLogsView
+from .controllers.health import AdminSystemHealthView
 from .controllers.auth import AdminLoginView, AdminRegisterView
 from .controllers.currencies import AdminCurrenciesView, AdminSeedCurrenciesView
 
@@ -12,6 +13,7 @@ urlpatterns = [
     
     # Dashboard
     path('dashboard-stats/', AdminDashboardStatsView.as_view(), name='admin-dashboard-stats'),
+    path('health/', AdminSystemHealthView.as_view(), name='admin-health'),
     path('audit-logs/', AdminAuditLogsView.as_view(), name='admin-audit-logs'),
     
     # Users
