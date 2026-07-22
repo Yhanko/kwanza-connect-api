@@ -73,3 +73,4 @@ vine==5.1.0
 wcwidth==0.6.0
 zope.interface==8.2
 argon2-cffi==23.1.0
+cloudinary==1.45.0
