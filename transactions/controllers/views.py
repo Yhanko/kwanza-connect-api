@@ -187,50 +187,19 @@ class TopPaymentMethodsMetricsView(APIView):
 
     @extend_schema(tags=['Métricas'])
     def get(self, request):
-        import re
         from collections import Counter
         from offers.models import Offer
 
-        # Palavras-chave de plataformas/bancos com alias
-        # A chave é o padrão Regex, o valor é o nome oficial
-        platforms_map = {
-            'PayPal': 'PayPal',
-            'Wise': 'Wise',
-            'Revolut': 'Revolut',
-            'Binance': 'Binance',
-            'Biance': 'Binance',  # erro comum
-            'Unitel Money': 'Unitel Money',
-            'M-Pesa': 'M-Pesa',
-            'Transferência Bancária': 'Transferência Bancária',
-            'BAI': 'BAI',
-            'BFA': 'BFA',
-            'BIC': 'BIC',
-            'Keve': 'Keve',
-            'PayPay': 'PayPay',
-            'AfriMoney': 'AfriMoney',
-            'Multicaixa': 'Multicaixa',
-            'Express': 'Multicaixa Express',
-            'BPA': 'BPA',
-            'Atlantico': 'Atlantico',
-            'Bybit': 'Bybit'
-        }
-
-        # Expressões regulares pre-compiladas, ignorando maiúsculas/minúsculas
-        patterns = {p: re.compile(re.escape(p), re.IGNORECASE) for p in platforms_map.keys()}
         counter = Counter()
 
-        # Obter todas as notas das ofertas publicadas
-        qs = Offer.objects.exclude(notes__isnull=True).exclude(notes='')
+        # Iterate specific list field instead of text notes
+        qs = Offer.objects.all()
         
-        # Iterar e extrair menções
         for offer in qs:
-            notes = offer.notes
-            if not notes:
-                continue
-            for pattern_name, regex in patterns.items():
-                if regex.search(notes):
-                    official_name = platforms_map[pattern_name]
-                    counter[official_name] += 1
+            methods = offer.payment_methods
+            if isinstance(methods, list):
+                for method in methods:
+                    counter[method] += 1
 
         # Formatar para o gráfico: lista de dicionários ordenada
         data = [
