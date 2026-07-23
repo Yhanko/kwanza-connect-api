@@ -24,6 +24,7 @@ class DjangoUserRepository(IUserRepository):
         return UserEntity(
             id=django_user.id,
             email=django_user.email,
+            username=django_user.username,
             full_name=django_user.full_name,
             is_active=django_user.is_active,
             is_staff=django_user.is_staff,
@@ -114,6 +115,9 @@ class DjangoUserRepository(IUserRepository):
     def exists_by_email(self, email: str) -> bool:
         return DjangoUser.objects.filter(email=email).exists()
 
+    def exists_by_username(self, username: str) -> bool:
+        return DjangoUser.objects.filter(username=username).exists()
+
     def get_count(self) -> int:
         return DjangoUser.objects.count()
 
@@ -140,6 +144,7 @@ class DjangoUserRepository(IUserRepository):
                 id=user_entity.id,
                 defaults={
                     'email': user_entity.email,
+                    'username': user_entity.username,
                     'full_name': user_entity.full_name,
                     'is_active': user_entity.is_active,
                     'is_staff': user_entity.is_staff,

@@ -17,143 +17,143 @@ Este projeto foi idealizado e desenvolvido por **Romeu Cajamba**.
 ---
 
 ## 🛠️ Tecnologias Utilizadas
-- **Backend:** Python 3.10+ & Django 4.2+
-- **API Framework:** Django REST Framework (DRF)
-- **Real-Time:** Django Channels (WebSockets) com Redis Layer
+- **Linguagem & Framework Base:** Python 3.10+ & Django 4.2+
+- **APIs RESTful:** Django REST Framework (DRF)
+- **Real-Time (Chat & Notificações):** Django Channels (WebSockets) com Redis Layer
+- **Media Storage (Imagens e Documentos KYC):** Integração com **Cloudinary** API
 - **Email Service:** Mock Terminal (Dev) / SMTP (Prod)
-- **Base de Dados:** PostgreSQL
+- **Base de Dados:** PostgreSQL (Persistência Principal)
 - **Cache & Message Broker:** Redis
-- **Tarefas de Fundo:** Celery & Celery Beat
-- **Documentação:** DRF Spectacular (OpenAPI 3 / Swagger)
-- **Segurança:** SimpleJWT (JSON Web Tokens), Argon2 & API Key Auth
-- **Ambiente:** Docker & Docker Compose
+- **Tarefas Assíncronas (Background Jobs):** Celery & Celery Beat (Atualização de taxas de câmbio, cancelamento/expiração de transações/ofertas)
+- **Documentação Interativa da API:** DRF Spectacular (OpenAPI 3 / Swagger)
+- **Segurança:** SimpleJWT (JSON Web Tokens), Hashes Avançados via Argon2 & API Key Auth
+- **Infraestrutura/Ambiente:** Docker & Docker Compose
 
 ---
 
 ## 🏛️ Arquitetura e Organização
-O projeto foi totalmente refatorado seguindo os princípios de **Clean Architecture**, **SOLID** e **Clean Code**. Esta abordagem desacopla a lógica de negócio do framework (Django), facilitando a manutenção e a testabilidade.
+O projeto foi totalmente refatorado seguindo os princípios de **Clean Architecture**, **SOLID** e **Clean Code**. Esta abordagem desacopla a lógica de negócio do framework (Django), facilitando a manutenção e a testabilidade, criando um fluxo unidirecional das regras da empresa.
 
 ### Estrutura de Pastas (por Módulo)
-Cada módulo (`users`, `offers`, `chat`, `notifications`, `rates`, `transactions`, `security`, `audit`) segue rigorosamente este padrão:
+Cada módulo central (`users`, `offers`, `chat`, `notifications`, `rates`, `transactions`, `admin_api`, `security`, `audit`) segue o estrito padrão de portas e adaptadores:
 
 1. **`domain/` (Coração do Sistema)**:
-   - `entities.py`: Classes Python puras (POPOs) que representam os conceitos reais.
-   - `interfaces.py`: Contratos abstratos (ABCs) para Repositórios e Serviços.
+   - `entities.py`: Classes Python puras (POPOs - *Plain Old Python Objects*) que detêm o estado real livre do ORM do Django.
+   - `interfaces.py`: Contratos abstratos (ABCs) para Repositórios e Interfaces de Serviços, os quais a infraestrutura implementará.
 2. **`services/` (Casos de Uso)**:
-   - `use_cases.py`: Orquestram a lógica da aplicação operando apenas sobre Entidades e Interfaces (DI via construtor).
+   - `use_cases.py`: Orquestram a lógica da aplicação operando totalmente isolada, ligada apenas por Injeção de Dependências.
 3. **`infra/` (Detalhes Técnicos)**:
-   - `repositories.py`: Implementações dos contratos usando o ORM do Django.
-   - `serializers.py`: Transformação de dados para a API (DRF).
-   - `services.py`: Adaptadores de infraestrutura para comunicação entre módulos.
+   - `repositories.py`: Implementações dos contratos (Bases de Dados, Querysets e acoplamento ao ORM do Django).
+   - `serializers.py`: Validação e transformação de dados que viajam para o exterior (DRF Validation).
+   - `email_service.py` ou serviços externos como `Cloudinary`.
 4. **`controllers/` (Interface de Entrada)**:
-   - `views.py`: Views do Django que injetam os repositórios concretos nos Casos de Uso.
+   - `views.py` / `urls.py`: Pontos de entrada baseados em DRF `APIView` ou `ViewSet` que recebem HTTP Requests, validam Serializers e Injetam as dependências para o Caso de Uso.
 5. **`tests/` (Garantia de Qualidade)**:
-   - `unit/`: Testes de lógica de negócio usando Mocks para isolamento total.
-   - `e2e/`: Testes de ponta a ponta que validam o fluxo completo da API.
+   - `unit/`: Testes utilizando fixtures e Mocking.
+   - `e2e/`: End-to-end tests integrados usando Banco de Dados the teste.
 
 ---
 
 ## 🧪 Testes e Qualidade
-A API conta com uma suíte de testes automatizados utilizando `pytest` e `pytest-django`.
+A API conta com uma suíte de testes automatizados construída sobre `pytest` e `pytest-django`. 
 
-**Executar todos os testes da aplicação:**
+**Para os desenvolvedores:**
 ```bash
 # 1. Ativar o ambiente virtual (Windows)
 .\venv\Scripts\activate
 
-# 2. Executar a suíte completa com detalhes verbosos
+# 2. Executar a suíte completa com output verboso
 pytest -v
-```
 
-**Executar testes por categorias ou módulos (Exemplos):**
-```bash
-# Apenas os testes unitários de um módulo específico (ex: users)
+# Apenas os testes unitários de um módulo (ex: users)
 pytest users/tests/unit/ -v
 
-# Todos os testes unitários (lógica de negócio isolada)
-pytest users/tests/unit offers/tests/unit chat/tests/unit transactions/tests/unit -v
-
-# Apenas os testes end-to-end (e2e - Integração com DB e API)
-pytest users/tests/e2e/ -v
+# Apenas os testes end-to-end (e2e - Integração global total com o DB real/teste)
+pytest offers/tests/e2e/ -v
 ```
 
-**Módulos Cobertos:**
-A refatoração incluiu a criação de testes para todos os módulos críticos: `users`, `offers`, `chat`, `notifications`, `rates`, `transactions` e `security`.
+---
+
+## ⚖️ Regras de Negócio Importantes
+1. **Verificação (KYC):** Somente contas aprovadas pelo admin possuem acesso ao P2P para Publicar Ofertas ou Enviar Propostas (`is_verified` // `verification_status="approved"`).
+2. **Geração the Usernames:** Identificadores únicos (`@username`) gerados automaticamente a partir do formulário de submissão do Nome Completo mitigando homónimos.
+3. **Restrições de Sanção & Bloqueio:** Os admins podem `suspender temporariamente` ou `bloquear definitivamente` membros baseados no _Reporting System_.
+4. **Ciclo P2P (Ofertas & Transacções):** Ofertas (`Ativa`, `Pausada`, `Expirada`, `Encerrada`). Interesses transitam de `pending` a `accepted` gerando `Transacções` via Chat Socket Rooms.
+5. **Taxas e Câmbios:** Cotações globais integradas de provedores abertos auto atualizados periodicamente através de *Celery Beat*. 
+6. **Real-Time WebSockets:** Chat point-to-point (P2P) assíncrono para agilizar transação fiduciária com notificação em painel (Push e DB).
 
 ---
 
-## ⚖️ Regras de Negócio
-1. **Verificação (KYC):** Apenas utilizadores com documentos aprovados podem publicar ofertas ou aceitar interesses (configurável via permissões).
-2. **Ciclo de Oferta:** Uma oferta pode estar `Ativa`, `Pausada`, `Expirada` ou `Encerrada`.
-3. **Interesses:** Quando um utilizador demonstra interesse, uma sala de chat privada é criada entre as partes.
-4. **Taxas Reais:** O sistema atualiza as taxas de câmbio mundiais a cada 5 minutos via Celery Beat para servir de referência.
-5. **Avaliação:** Após a conclusão de uma transação, ambos os participantes podem avaliar-se mutuamente (1 a 5 estrelas).
-6. **Recuperação de Conta:** Fluxo completo de "Esqueci a Senha" com tokens seguros e expiração de 2 horas.
-7. **Real-Time:** Notificações e mensagens de chat são entregues via WebSockets instantaneamente.
-8. **Auditoria:** Todas as ações críticas (Login, Registo, Criação de Oferta, Transação) são registadas na base de dados e no terminal em tempo real.
-9. **Segurança CORS:** A API está protegida e configurada para aceitar origens específicas (ex: Frontend React em `localhost:5173`).
+## ⚙️ Variáveis de Ambiente Necessárias (o `env`)
+Sempre crie um ficheiro **`.env`** na raiz. Os parâmetros essenciais incluem:
+```ini
+DEBUG=True
+SECRET_KEY=sua-secret-key-secreta-do-django
+FRONTEND_URL=http://localhost:5173
 
----
+# BD Connection URI
+DATABASE_URL=postgres://user:pass@host:port/dbname
 
-## 📈 Auditoria e Monitorização
-O sistema agora inclui um módulo de auditoria centralizado que permite rastrear cada passo do utilizador:
+# Broker (Websockets e Async Tasks)
+REDIS_URL=redis://127.0.0.1:6379/1
 
-### Logs no Terminal
-Durante o desenvolvimento, verás saídas formatadas no terminal do servidor sempre que uma ação for realizada:
-```text
-[AUDIT LOG] 2026-04-02 04:15:00
-  Action: USER_LOGIN
-  Resource: users (N/A)
-  User: <uuid> | IP: 127.0.0.1
+# CLOUDINARY (Media Storage Hoster)
+CLOUDINARY_CLOUD_NAME=nome_cloud
+CLOUDINARY_API_KEY=0000000
+CLOUDINARY_API_SECRET=xxxxxxxxxxxxxxxxxxxxx
 ```
 
-### Consultar via Admin
-Podes consultar o histórico completo de auditoria no Painel Administrativo em `/admin/audit/auditlog/`.
-
 ---
 
-## 🚀 Como Executar o Projeto
+## 🚀 Como Iniciar / Executar o Projeto Localmente
 
-### Pré-requisitos
-- Docker e Docker Compose instalados.
-- Ficheiro `.env` configurado (ver `exemple.env`).
+### Pré-requisitos Nativos
+- **Python 3.10+** instalado
+- Instâncias de **PostgreSQL** e **Redis** operando localmente no host.
+- *Virtualenv* para a conteinerização das bibliotecas Python.
 
-### Execução via Docker (Recomendado)
+### 1️⃣ Inicialização do Core
+Abra os terminais necessários e siga as etapas para uma instância **Dev Nativa**. (Windows / Unix)
+
 ```bash
-# 1. Construir e subir os containers
-docker compose up --build -d
+# Iniciar repositório no virtual environment (Linux/Mac)
+python -m venv venv
+source venv/bin/activate
+# ou Windows: .\venv\Scripts\activate
 
-# 2. Correr as migrações da base de dados
-docker compose exec web python manage.py migrate
-
-# 3. Criar um administrador
-docker compose exec web python manage.py createsuperuser
-
-# 4. Verificar os logs
-docker compose logs -f web
-```
-
-### Execução Local (Desenvolvimento)
-Se preferir rodar sem Docker, precisará do PostgreSQL e Redis ativos:
-```bash
-# 1. Instalar dependências
+# Instalar pacotes de terceiros (DRF, Celery, psycopg2, Cloudinary...)
 pip install -r requirements.txt
 
-# 2. Rodar migrações
+# Aplicar estruturas do domínio no Database ORM e rodar Scripts de Migração de Dados
+python manage.py makemigrations
 python manage.py migrate
 
-# 3. Iniciar o servidor de desenvolvimento
-python manage.py runserver
+# Criar Superusuário nativo para ter passe livre na App Administrativa (`/admin/` Django nativo & Painel React)
+python manage.py createsuperuser
 
-# 4. Iniciar o Worker do Celery (em outro terminal)
-# NOTA: No Windows é necessário usar o argumento --pool=solo
+# Subir a API Django Rest (Host porting => 127.0.0.1:8000)
+python manage.py runserver
+```
+
+### 2️⃣ Inicialização the Filas e Sockets Asíncronos (Celery Workers)
+Para que o envio de emails em background, websockets push notification e os algoritmos que dão purge em DB log persistam atempadamente. *(Executar em 2 terminais separados e ter o serviço the servidor Redis activo no background na porta standard 6379).*
+
+```bash
+# TERMINAL 2: Iniciar o Worker Unit (Linux/Mac)
+celery -A app worker -l info 
+# IMPORTANTE: Se usar WINDOWS utilize o parametro --pool=solo!
 celery -A app worker -l info --pool=solo
 
-# 5. Iniciar o Celery Beat para agendar tarefas periódicas (em outro terminal)
-# Responsável por atualizar taxas de câmbio, expirar ofertas e limpar logs antigos
+# TERMINAL 3: Agendador the Tasks 
 celery -A app beat -l info
 ```
 
 ---
-## 📜 Licença
-Este software é propriedade privada de **Romeu Cajamba**.
+
+## 📖 Swagger e Exploração the Routas REST
+Assim que todos os servidores locais estiverem _up_, consulte visualmente os Endpoints criados navegando para:
+- **`http://localhost:8000/api/schema/swagger-ui/`** (Swagger Completo UI)
+
+---
+## 📜 Licença 
+Este software backend e as suas respectivas bases core, são de modelo e propriedade fechados e pertecem apenas a **Romeu Cajamba**.

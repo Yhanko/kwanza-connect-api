@@ -40,6 +40,42 @@ class RegisterUserUseCase:
         self.email_service = email_service
         self.storage_service = storage_service
 
+    def _generate_username(self, full_name: str, doc_number: str = None) -> str:
+        import unicodedata
+        import random
+        
+        base = 'user'
+        if full_name:
+            parts = full_name.split()
+            if len(parts) > 1:
+                base = f"{parts[0].lower()}{parts[-1].lower()}"
+            else:
+                base = parts[0].lower()
+                
+        base = unicodedata.normalize('NFKD', base).encode('ascii', 'ignore').decode('ascii')
+        base = re.sub(r'[^a-z0-9]', '', base)
+        if not base:
+            base = 'user'
+            
+        suffix = ""
+        if doc_number:
+            nums = re.findall(r'\d+', doc_number)
+            if nums:
+                suffix = "".join(nums)[-3:]
+                
+        if not suffix:
+            suffix = str(random.randint(100, 999))
+            
+        username = f"{base}{suffix}"
+        
+        original_username = username
+        counter = 1
+        while self.repository.exists_by_username(username):
+            username = f"{original_username}{counter}"
+            counter += 1
+            
+        return username
+
     def execute(self, email: str, password: str, full_name: str, **kwargs) -> dict:
         if self.repository.exists_by_email(email):
             raise ValidationError({'email': 'Este email já está registado.'})
@@ -54,9 +90,15 @@ class RegisterUserUseCase:
 
         # Criação da entidade
         user_id = uuid.uuid4()
+        
+        # Gerar username
+        doc_num = kwargs.get('doc_number')
+        generated_username = self._generate_username(full_name, doc_number=doc_num)
+        
         user = UserEntity(
             id=user_id,
             email=email,
+            username=generated_username,
             full_name=full_name,
             password=password,
             is_active=True,

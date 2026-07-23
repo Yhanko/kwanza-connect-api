@@ -31,6 +31,10 @@ class IUserRepository(ABC):
         pass
 
     @abstractmethod
+    def exists_by_username(self, username: str) -> bool:
+        pass
+
+    @abstractmethod
     def update_security(self, security: UserSecurityEntity) -> None:
         pass
 

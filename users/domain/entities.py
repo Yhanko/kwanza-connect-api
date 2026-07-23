@@ -51,6 +51,7 @@ class UserEntity:
     id: uuid.UUID
     email: str
     full_name: str
+    username: Optional[str] = None
     is_active: bool = False
     is_staff: bool = False
     is_verified: bool = False
