@@ -159,11 +159,21 @@ class LoginUseCase:
         security = self.repository.get_security_by_user_id(user.id)
         if security and security.is_locked():
             raise AuthenticationFailed(
-                'Conta bloqueada por excesso de tentativas. Tente novamente em 15 minutos.'
+                'Conta bloqueada por excesso de tentativas. Tente novamente em 15 minutos.',
+                code='account_locked_bruteforce'
             )
 
         if not user.is_active:
-            raise AuthenticationFailed('Conta não activada. Verifique o seu email.')
+            if security and not security.email_verified:
+                raise AuthenticationFailed(
+                    'Conta não activada. Verifique o seu email.',
+                    code='account_inactive'
+                )
+            else:
+                raise AuthenticationFailed(
+                    'A conta encontra-se bloqueada, contacte o admin.',
+                    code='account_blocked'
+                )
 
         # Aqui ainda dependemos do Django authenticate ou de um serviço injetado
         from django.contrib.auth import authenticate

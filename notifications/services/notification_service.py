@@ -77,6 +77,10 @@ class NotificationService:
             'title': 'Utilizador Denunciado',
             'body': '{reporter_name} denunciou {reported_name} por: {reason_preview}',
         },
+        NotificationType.ACCOUNT_SUSPENDED: {
+            'title': 'Conta Suspensa',
+            'body': 'A tua conta foi suspensa por {days} dia(s) e o acesso a certas páginas estará restrito até {until}.',
+        },
     }
 
     @classmethod

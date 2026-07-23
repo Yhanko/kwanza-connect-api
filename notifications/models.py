@@ -23,6 +23,7 @@ class NotificationType(models.TextChoices):
     # Sistema
     ACCOUNT_VERIFIED   = 'account_verified',   'Conta verificada'
     ACCOUNT_REJECTED   = 'account_rejected',   'Verificação rejeitada'
+    ACCOUNT_SUSPENDED  = 'account_suspended',  'Conta Suspensa'
     SYSTEM             = 'system',             'Notificação do sistema'
     NEW_USER_REGISTRATION = 'new_user_registration', 'Novo Utilizador Registado'
     USER_PROFILE_UPDATED  = 'user_profile_updated',  'Perfil Atualizado'
