@@ -223,6 +223,10 @@ CELERY_BEAT_SCHEDULE = {
         'task':     'offers.tasks.expire_old_offers',
         'schedule': crontab(minute=0),
     },
+    'cleanup-old-audit-logs': {
+        'task':     'audit.tasks.cleanup_old_audit_logs',
+        'schedule': crontab(hour=2, minute=0),
+    },
 }
 
 # ─────────────────────────────────────────────

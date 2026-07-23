@@ -15,6 +15,7 @@ def fetch_rates(self):
     """
     from offers.models import Currency, ExchangeRate
     from rates.infra.providers.exchangerate_api import ExchangeRateAPIProvider
+    from django.core.cache import cache
 
     currencies = list(Currency.objects.filter(is_active=True).values_list('code', flat=True))
     if not currencies:
@@ -47,7 +48,9 @@ def fetch_rates(self):
                 to_currency=target_currency,
                 defaults={'rate': rate_value, 'source': 'open.er-api.com'},
             )
+            cache.delete(f"rate_{base_code}_{target_code}".lower())
             total += 1
 
+    cache.delete('all_exchange_rates')
     logger.info('fetch_rates: %d pares de câmbio actualizados.', total)
     return f'{total} par(es) de câmbio actualizados.'

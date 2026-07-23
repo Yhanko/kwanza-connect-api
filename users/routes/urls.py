@@ -3,7 +3,8 @@ from ..controllers.views import (
     RegisterView, LoginView, LogoutView,
     VerifyEmailView, ForgotPasswordView, ResetPasswordView,
     MeView, ChangePasswordView, PublicProfileView,
-    KYCSubmitView, KYCStatusView,
+    KYCSubmitView, KYCStatusView, UserLocationsView,
+    ReportUserView,
 )
 
 urlpatterns = [
@@ -23,4 +24,10 @@ urlpatterns = [
     # KYC
     path('kyc/submit/',              KYCSubmitView.as_view(),      name='kyc-submit'),
     path('kyc/status/',              KYCStatusView.as_view(),      name='kyc-status'),
+    
+    # Locais
+    path('locations/',               UserLocationsView.as_view(),  name='user-locations'),
+    
+    # Moderação
+    path('report/',                  ReportUserView.as_view(),     name='user-report'),
 ]

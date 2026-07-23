@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from django.utils import timezone
 from typing import Optional, List, Any
 import uuid
 
@@ -41,7 +42,7 @@ class UserSecurityEntity:
     password_reset_expires: Optional[datetime] = None
 
     def is_locked(self) -> bool:
-        if self.locked_until and self.locked_until > datetime.now():
+        if self.locked_until and self.locked_until > timezone.now():
             return True
         return False
 
@@ -79,3 +80,17 @@ class UserEntity:
 
     def update_last_seen(self):
         self.last_seen = datetime.now()
+
+
+@dataclass
+class ReportEntity:
+    id: uuid.UUID
+    reporter_id: uuid.UUID
+    reported_to_id: uuid.UUID
+    room_id: Optional[uuid.UUID]
+    reason: str
+    status: str
+    admin_notes: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+

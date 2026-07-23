@@ -23,6 +23,21 @@ def validate_angolan_phone(value):
 
 
 # ─────────────────────────────────────────────
+#  Denúncias e Arbitragem
+# ─────────────────────────────────────────────
+
+class ReportCreateSerializer(serializers.Serializer):
+    reported_to_id = serializers.UUIDField(required=True)
+    room_id = serializers.UUIDField(required=False, allow_null=True)
+    reason = serializers.CharField(max_length=1000, required=True)
+    
+    def validate_reason(self, value):
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError('O motivo da denúncia é demasiado curto. Por favor justifique melhor.')
+        return value
+
+
+# ─────────────────────────────────────────────
 #  Registo e autenticação
 # ─────────────────────────────────────────────
 
@@ -109,27 +124,67 @@ class ResetPasswordSerializer(serializers.Serializer):
 class PublicUserSerializer(serializers.ModelSerializer):
     """Perfil público — exposto a outros utilizadores."""
     avatar = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    reviews_count = serializers.SerializerMethodField()
+    recent_reviews = serializers.SerializerMethodField()
+
     class Meta:
         model  = User
         fields = [
-            'id', 'full_name', 'country_code', 'city', 'province', 'municipality', 'neighborhood',
+            'id', 'full_name', 'email', 'phone', 'country_code', 'city', 'province', 'municipality', 'neighborhood',
             'bio', 'avatar', 'is_available', 'is_verified',
             'preferred_give_currency', 'preferred_want_currency',
-            'date_joined',
+            'date_joined', 'average_rating', 'reviews_count', 'recent_reviews'
         ]
         read_only_fields = fields
 
     def get_avatar(self, obj):
-        # Suporta tanto Model (obj.avatar.url) como Entity (obj.avatar como string)
         avatar = getattr(obj, 'avatar', None)
         if not avatar:
             return None
         if isinstance(avatar, str):
             return avatar
+        
+        avatar_str = str(avatar)
+        if avatar_str.startswith('http'):
+            return avatar_str
+            
         try:
             return avatar.url
         except Exception:
             return None
+
+    def get_average_rating(self, obj):
+        from django.db.models import Avg
+        from transactions.models import TransactionReview
+        try:
+            avg = TransactionReview.objects.filter(reviewed_id=obj.id).aggregate(Avg('rating'))['rating__avg']
+            return round(avg, 1) if avg else 0.0
+        except Exception:
+            return 0.0
+
+    def get_reviews_count(self, obj):
+        from transactions.models import TransactionReview
+        try:
+            return TransactionReview.objects.filter(reviewed_id=obj.id).count()
+        except Exception:
+            return 0
+
+    def get_recent_reviews(self, obj):
+        from transactions.models import TransactionReview
+        try:
+            reviews = TransactionReview.objects.filter(reviewed_id=obj.id).select_related('reviewer').order_by('-created_at')[:3]
+            return [
+                {
+                    'id': str(r.id),
+                    'rating': r.rating,
+                    'comment': r.comment,
+                    'reviewer_name': r.reviewer.full_name,
+                    'created_at': r.created_at
+                } for r in reviews
+            ]
+        except Exception:
+            return []
 
 
 
@@ -140,15 +195,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model  = User
         fields = [
             'id', 'email', 'full_name', 'phone', 'country_code', 'province', 'municipality', 'neighborhood',
-            'province', 'municipality', 'neighborhood',
             'city', 'address', 'occupation', 'bio', 'avatar',
             'is_active', 'is_verified', 'is_available', 'is_staff',
             'verification_status', 'preferred_give_currency',
             'preferred_want_currency', 'last_seen', 'date_joined',
+            'suspended_until', 'restricted_pages'
         ]
         read_only_fields = [
             'id', 'email', 'is_active', 'is_verified', 'is_staff',
             'verification_status', 'last_seen', 'date_joined',
+            'suspended_until', 'restricted_pages'
         ]
 
     def get_avatar(self, obj):
@@ -157,6 +213,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return None
         if isinstance(avatar, str):
             return avatar
+            
+        avatar_str = str(avatar)
+        if avatar_str.startswith('http'):
+            return avatar_str
+            
         try:
             return avatar.url
         except Exception:
@@ -211,6 +272,11 @@ class IdentityDocumentSerializer(serializers.ModelSerializer):
             return None
         if isinstance(file_field, str):
             return file_field
+            
+        file_str = str(file_field)
+        if file_str.startswith('http'):
+            return file_str
+            
         try:
             return file_field.url
         except Exception:

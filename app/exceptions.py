@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.core.exceptions import PermissionDenied, ValidationError as DjangoValidationError
 from django.http import Http404
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -71,12 +72,29 @@ def handle_global_errors(exc, context) -> Response:
             errors = exc.message_dict if hasattr(exc, 'message_dict') else {'non_field_errors': exc.messages}
             return _build_error_response(400, errors=errors)
 
-        # Erro não esperado — regista internamente mas não expõe detalhes
-        logger.exception(
-            'Unhandled exception in view %s: %s',
-            context.get('view', '?'),
-            exc,
-        )
+        # Formata o erro de forma limpa e compreensiva
+        view_name = context.get('view', '?')
+        tb = traceback.extract_tb(exc.__traceback__)
+        last_call = tb[-1] if tb else None
+        
+        err_msg = f"\n\033[91m💥 [ERRO 500 - INTERNO] na view: {view_name}\033[0m"
+        if last_call:
+            file_name = last_call.filename.split('kwanzaConnect-API')[-1]
+            err_msg += f"\n   📍 Local: {file_name} na linha {last_call.lineno} (função '{last_call.name}')"
+        err_msg += f"\n   🚨 Motivo: {type(exc).__name__}: {str(exc)}\n"
+
+        logger.error(err_msg)
+        
+        request = context.get('request')
+        if request:
+            from app.audit_service import audit_log
+            audit_log(
+                action='SYSTEM_ERROR_500',
+                resource='system',
+                metadata={'view': str(view_name), 'error': type(exc).__name__, 'details': str(exc)},
+                request=request
+            )
+            
         return _build_error_response(500)
 
     # ── Respostas DRF — normalizar formato ───────────────────────────
@@ -115,7 +133,16 @@ def handle_global_errors(exc, context) -> Response:
 
     # Log de erros 5xx para debugging interno (sem expor ao cliente)
     if code >= 500:
-        logger.error('5xx error [%s] in %s: %s', code, context.get('view', '?'), exc)
+        logger.error('\n\033[91m💥 [ERRO DRF 5xx] na view: %s\033[0m\n   🚨 Motivo: %s\n', context.get('view', '?'), exc)
+        request = context.get('request')
+        if request:
+            from app.audit_service import audit_log
+            audit_log(
+                action=f'SYSTEM_ERROR_{code}',
+                resource='system',
+                metadata={'view': str(context.get('view', '?')), 'error': type(exc).__name__, 'details': str(exc)},
+                request=request
+            )
 
     response.data = {
         'success': False,

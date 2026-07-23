@@ -16,12 +16,12 @@ from ..infra.serializers import (
     RegisterSerializer, LoginSerializer, ChangePasswordSerializer,
     ForgotPasswordSerializer, ResetPasswordSerializer,
     UserProfileSerializer, UpdateProfileSerializer, IdentityDocumentSerializer,
-    PublicUserSerializer,
+    PublicUserSerializer, ReportCreateSerializer,
 )
 from ..services.use_cases import (
     RegisterUserUseCase, LoginUseCase, VerifyEmailUseCase,
     ChangePasswordUseCase, ForgotPasswordUseCase, ResetPasswordUseCase,
-    UpdateProfileUseCase, SubmitKYCUseCase,
+    UpdateProfileUseCase, SubmitKYCUseCase, SubmitReportUseCase,
 )
 from ..infra.repositories import DjangoUserRepository
 from ..infra.email_service import TerminalEmailService
@@ -101,6 +101,10 @@ class LoginView(APIView):
             audit_repo = DjangoAuditRepository()
             tokens = LoginUseCase(repo, audit_repo).execute(email=email, password=password)
             
+            # Serialize the user to include profile fields
+            user_model = tokens.pop('user')
+            tokens['user'] = UserProfileSerializer(user_model).data
+
             # Log de Sucesso
             audit_log(
                 action='USER_LOGIN_SUCCESS', 
@@ -325,9 +329,64 @@ class KYCStatusView(APIView):
         }
         if hasattr(request.user, 'identity_document'):
             doc = request.user.identity_document
-            data['document'] = {
-                'status':           doc.status,
-                'rejection_reason': doc.rejection_reason or None,
-                'submitted_at':     doc.submitted_at,
-            }
+            from ..infra.serializers import IdentityDocumentSerializer
+            data['document'] = IdentityDocumentSerializer(doc).data
         return success_response(data=data)
+
+
+class UserLocationsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=['Users'])
+    def get(self, request):
+        qs = User.objects.filter(is_active=True)\
+                 .exclude(province__isnull=True).exclude(province='')\
+                 .exclude(municipality__isnull=True).exclude(municipality='')
+        
+        locations = qs.values('province', 'municipality').distinct()
+        
+        grouped = {}
+        for loc in locations:
+            prov = loc['province']
+            mun = loc['municipality']
+            if prov not in grouped:
+                grouped[prov] = set()
+            grouped[prov].add(mun)
+            
+        result = [
+            {"name": prov, "municipalities": sorted(list(muns))}
+            for prov, muns in grouped.items()
+        ]
+        
+        result.sort(key=lambda x: x["name"])
+        return success_response(data=result)
+
+
+# ─────────────────────────────────────────────
+#  Moderação (Reports)
+# ─────────────────────────────────────────────
+
+class ReportUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=ReportCreateSerializer, tags=['Moderação'])
+    def post(self, request):
+        repo = DjangoUserRepository()
+        serializer = ReportCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        SubmitReportUseCase(repo).execute(
+            reporter_id=request.user.id,
+            reported_to_id=serializer.validated_data['reported_to_id'],
+            reason=serializer.validated_data['reason'],
+            room_id=serializer.validated_data.get('room_id')
+        )
+        
+        audit_log(
+            action='USER_SUBMIT_REPORT', 
+            resource='users', 
+            metadata={'reported_to_id': str(serializer.validated_data['reported_to_id'])},
+            request=request
+        )
+        
+        return success_response(message='Denúncia enviada com sucesso. A equipa de moderação irá analisar o caso brevemente.')

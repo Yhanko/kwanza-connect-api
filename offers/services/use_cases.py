@@ -64,6 +64,8 @@ class CreateOfferUseCase:
             notes=data.get('notes', ''),
             city=data.get('city', ''),
             country_code=data.get('country_code', ''),
+            latitude=data.get('latitude', None),
+            longitude=data.get('longitude', None),
             expires_at=data.get('expires_at'),
         )
         

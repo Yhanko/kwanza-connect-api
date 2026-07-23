@@ -38,6 +38,8 @@ class OfferEntity:
     views_count: int = 0
     city: str = ""
     country_code: str = ""
+    latitude: Optional[Decimal] = None
+    longitude: Optional[Decimal] = None
     implied_rate: Optional[Decimal] = None
     expires_at: Optional[datetime] = None
     created_at: Optional[datetime] = None

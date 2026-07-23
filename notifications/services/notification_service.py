@@ -61,6 +61,22 @@ class NotificationService:
             'title': 'Aviso do sistema',
             'body':  '{message}',
         },
+        NotificationType.NEW_USER_REGISTRATION: {
+            'title': 'Novo Utilizador Registado',
+            'body': '{actor} acabou de criar uma conta na plataforma.',
+        },
+        NotificationType.USER_PROFILE_UPDATED: {
+            'title': 'Perfil Atualizado',
+            'body': '{actor} atualizou os seus dados de perfil. Podes rever para aprovação.',
+        },
+        NotificationType.KYC_SUBMITTED: {
+            'title': 'Documento de Identidade Submetido',
+            'body': '{actor} enviou a foto do BI para verificação (KYC).',
+        },
+        NotificationType.USER_REPORTED: {
+            'title': 'Utilizador Denunciado',
+            'body': '{reporter_name} denunciou {reported_name} por: {reason_preview}',
+        },
     }
 
     @classmethod
@@ -75,6 +91,20 @@ class NotificationService:
         Cria a notificação e entrega-a por todos os canais activos (WS, Email, Push).
         """
         payload = payload or {}
+
+        from users.models import User as DjangoUser
+
+        # Normaliza recipient e actor para instâncias do modelo Django
+        if recipient and not isinstance(recipient, DjangoUser):
+            recipient_id = getattr(recipient, 'id', recipient)
+            recipient = DjangoUser.objects.filter(id=recipient_id).first()
+        
+        if not recipient:
+            return None
+
+        if actor and not isinstance(actor, DjangoUser):
+            actor_id = getattr(actor, 'id', actor)
+            actor = DjangoUser.objects.filter(id=actor_id).first()
 
         # 1. Verifica preferências do utilizador
         prefs, _ = NotificationPreference.objects.get_or_create(user=recipient)
@@ -113,6 +143,19 @@ class NotificationService:
         send_push_notification.delay(str(notification.id))
 
         return notification
+
+    @classmethod
+    def notify_admins(
+        cls,
+        notification_type: str,
+        payload: dict = None,
+        actor=None,
+    ):
+        """Notifica todos os administradores (is_staff=True)."""
+        from users.models import User
+        admins = User.objects.filter(is_staff=True)
+        for admin in admins:
+            cls.send(admin, notification_type, payload, actor)
 
     @staticmethod
     def _fmt(template: str, ctx: dict) -> str:

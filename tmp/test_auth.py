@@ -11,6 +11,9 @@ from users.services.use_cases import RegisterUserUseCase, LoginUseCase
 from audit.infra.repositories import DjangoAuditRepository
 from users.infra.email_service import TerminalEmailService
 
+import pytest
+
+@pytest.mark.django_db
 def test_flow():
     repo = DjangoUserRepository()
     audit_repo = DjangoAuditRepository()
@@ -30,12 +33,12 @@ def test_flow():
         login_use_case = LoginUseCase(repo, audit_repo)
         tokens = login_use_case.execute(email=email, password=password)
         print(f"Login OK: Tokens recebidos")
-        return True
+        assert tokens is not None
     except Exception as e:
         print(f"ERRO: {str(e)}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False, f"Fluxo falhou: {e}"
 
 if __name__ == "__main__":
     test_flow()

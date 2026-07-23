@@ -20,6 +20,7 @@ class TransactionSerializer(serializers.Serializer):
     rate = serializers.DecimalField(max_digits=24, decimal_places=8)
     status = serializers.CharField()
     notes = serializers.CharField(allow_blank=True)
+    has_review = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
 
@@ -43,22 +44,37 @@ class TransactionSerializer(serializers.Serializer):
         curr = Currency.objects.filter(id=obj.want_currency_id).first()
         return CurrencySerializer(curr).data if curr else None
 
+    def get_has_review(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return False
+            
+        from ..infra.repositories import DjangoTransactionRepository
+        repo = DjangoTransactionRepository()
+        review = repo.get_review_by_transaction_and_user(obj.id, request.user.id)
+        return bool(review)
 
-class TransactionReviewSerializer(serializers.ModelSerializer):
-    reviewer = PublicUserSerializer(read_only=True)
-    reviewed = PublicUserSerializer(read_only=True)
 
-    class Meta:
-        model  = TransactionReview
-        fields = [
-            'id', 'transaction', 'reviewer', 'reviewed',
-            'rating', 'comment', 'created_at'
-        ]
-        read_only_fields = ['id', 'reviewer', 'reviewed', 'created_at']
+class TransactionReviewSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    transaction = serializers.UUIDField(source='transaction_id')
+    reviewer = serializers.SerializerMethodField()
+    reviewed = serializers.SerializerMethodField()
+    rating = serializers.IntegerField()
+    comment = serializers.CharField(allow_blank=True)
+    created_at = serializers.DateTimeField(required=False)
 
-    def validate(self, data):
-        # Additional validation could be added here
-        return data
+    def get_reviewer(self, obj):
+        from users.models import User
+        user_id = getattr(obj, 'reviewer_id', None)
+        user = User.objects.filter(id=user_id).first() if user_id else None
+        return PublicUserSerializer(user).data if user else None
+
+    def get_reviewed(self, obj):
+        from users.models import User
+        user_id = getattr(obj, 'reviewed_id', None)
+        user = User.objects.filter(id=user_id).first() if user_id else None
+        return PublicUserSerializer(user).data if user else None
 
 
 class TransactionCreateSerializer(serializers.ModelSerializer):

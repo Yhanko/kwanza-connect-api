@@ -9,7 +9,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from app.exceptions import success_response, created_response, no_content_response
-from app.permissions import IsOwner
+from app.permissions import IsOwner, IsVerified
 from app.pagination import StandardPagination
 from ..models import Currency, Offer, OfferInterest
 from ..infra.serializers import (
@@ -47,17 +47,24 @@ class CurrencyListView(APIView):
 # ─────────────────────────────────────────────
 
 class OfferListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAuthenticated(), IsVerified()]
+        return [IsAuthenticated()]
 
     @extend_schema(tags=['Ofertas'])
     def get(self, request):
         repo = DjangoOfferRepository()
         filters = {
+            'search':        request.query_params.get('search'),
             'give_currency': request.query_params.get('give'),
             'want_currency': request.query_params.get('want'),
             'city':          request.query_params.get('city'),
+            'province':      request.query_params.get('province'),
+            'municipality':  request.query_params.get('municipality'),
             'min_amount':    request.query_params.get('min_amount'),
             'max_amount':    request.query_params.get('max_amount'),
+            'order':         request.query_params.get('order'),
         }
         qs         = ListOffersUseCase(repo).execute(filters=filters)
         paginator  = StandardPagination()
@@ -161,7 +168,7 @@ class OfferCloseView(APIView):
 # ─────────────────────────────────────────────
 
 class ExpressInterestView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsVerified]
 
     @extend_schema(request=OfferInterestCreateSerializer, tags=['Interesses'])
     def post(self, request, offer_id: str):

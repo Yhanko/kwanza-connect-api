@@ -10,6 +10,15 @@ class IUserRepository(ABC):
         pass
     
     @abstractmethod
+    def search_users(self, filters: dict) -> List[UserEntity]:
+        pass
+        
+    @abstractmethod
+    def save_report(self, report: 'ReportEntity') -> 'ReportEntity':
+        pass
+
+    
+    @abstractmethod
     def get_by_email(self, email: str) -> Optional[UserEntity]:
         pass
     

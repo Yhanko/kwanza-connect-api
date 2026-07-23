@@ -34,6 +34,8 @@ class OfferCreateSerializer(serializers.Serializer):
     notes               = serializers.CharField(max_length=500, required=False, allow_blank=True)
     city                = serializers.CharField(max_length=100, required=False, allow_blank=True)
     country_code        = serializers.CharField(max_length=5, required=False, allow_blank=True)
+    latitude            = serializers.DecimalField(max_digits=10, decimal_places=8, required=False, allow_null=True)
+    longitude           = serializers.DecimalField(max_digits=11, decimal_places=8, required=False, allow_null=True)
     expires_at          = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate(self, data):
@@ -61,6 +63,8 @@ class OfferSerializer(serializers.Serializer):
     notes                   = serializers.CharField()
     city                    = serializers.CharField()
     country_code            = serializers.CharField()
+    latitude                = serializers.DecimalField(max_digits=10, decimal_places=8, allow_null=True, required=False)
+    longitude               = serializers.DecimalField(max_digits=11, decimal_places=8, allow_null=True, required=False)
     views_count             = serializers.IntegerField()
     expires_at              = serializers.DateTimeField(allow_null=True)
     created_at              = serializers.DateTimeField(allow_null=True)

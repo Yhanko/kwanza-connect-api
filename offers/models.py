@@ -126,9 +126,11 @@ class Offer(models.Model):
     )
     views_count   = models.PositiveIntegerField(default=0)
 
-    # Localização opcional (para filtros por proximidade)
+    # Localização (para filtros e KYC/Anti-fraude)
     city          = models.CharField(max_length=100, blank=True)
     country_code  = models.CharField(max_length=5, blank=True)
+    latitude      = models.DecimalField(max_digits=10, decimal_places=8, null=True, blank=True)
+    longitude     = models.DecimalField(max_digits=11, decimal_places=8, null=True, blank=True)
 
     expires_at    = models.DateTimeField(null=True, blank=True)
     created_at    = models.DateTimeField(auto_now_add=True)
