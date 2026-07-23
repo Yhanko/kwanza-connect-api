@@ -29,7 +29,7 @@ class TransactionListView(APIView):
         
         paginator  = StandardPagination()
         page       = paginator.paginate_queryset(txs, request)
-        serializer = self.serializer_class(page, many=True)
+        serializer = self.serializer_class(page, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -71,7 +71,7 @@ class TransactionConfirmView(APIView):
         )
         
         return created_response(
-            data=TransactionSerializer(trans).data,
+            data=TransactionSerializer(trans, context={'request': request}).data,
             message='Transação confirmada e registada com sucesso.'
         )
 
@@ -125,7 +125,7 @@ class TransactionDetailView(APIView):
         if not trans or (trans.seller_id != request.user.id and trans.buyer_id != request.user.id):
             raise NotFound('Transação não encontrada ou não pertence ao utilizador.')
         
-        serializer = TransactionSerializer(trans)
+        serializer = TransactionSerializer(trans, context={'request': request})
         return success_response(data=serializer.data)
 
 
@@ -152,24 +152,33 @@ class TopLocationsMetricsView(APIView):
 
     @extend_schema(tags=['Métricas'])
     def get(self, request):
-        from django.db.models import Count
+        from django.db.models import Count, Value, Case, When, CharField
+        from django.db.models.functions import Coalesce, NullIf
         from ..models import Transaction
-        
+
         # Filtrar apenas transacções concluídas
         qs = Transaction.objects.filter(status='completed')
-        
-        # Agrupar pela cidade da oferta e contar
-        metrics = qs.exclude(offer__city__isnull=True).exclude(offer__city='').values('offer__city').annotate(
+
+        # Usar cidade da oferta se disponível, caso contrário usar a
+        # província do dono da oferta (campo mais preenchido pelos utilizadores)
+        qs = qs.annotate(
+            location=Coalesce(
+                NullIf('offer__city', Value('')),
+                NullIf('offer__owner__municipality', Value('')),
+                NullIf('offer__owner__province', Value('')),
+                output_field=CharField(),
+            )
+        ).exclude(location__isnull=True).values('location').annotate(
             exchanges=Count('id')
         ).order_by('-exchanges')[:10]
-        
+
         data = [
             {
-                "city": item['offer__city'],
+                "city": item['location'],
                 "exchanges": item['exchanges']
-            } for item in metrics
+            } for item in qs
         ]
-        
+
         return success_response(data=data, message='Métricas de localizações de topo.')
 
 

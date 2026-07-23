@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 # mas em uma arquitetura 100% pura, usaríamos exceções de domínio e converteríamos no controller.
 from rest_framework.exceptions import AuthenticationFailed, ValidationError, NotFound
 
-from ..domain.entities import UserEntity, UserSecurityEntity, IdentityDocumentEntity
+from ..domain.entities import UserEntity, UserSecurityEntity, IdentityDocumentEntity, ReportEntity
 from ..domain.interfaces import IUserRepository
 from notifications.services.notification_service import NotificationService
 from notifications.models import NotificationType
@@ -395,3 +395,40 @@ class ResetPasswordUseCase:
         if security:
             security.password_changed_at = timezone.now()
             self.repository.update_security(security)
+
+
+class SubmitReportUseCase:
+    """Submete uma queixa/denúncia sobre outro utilizador no contexto de uma sala."""
+    def __init__(self, user_repo: IUserRepository):
+        self.user_repo = user_repo
+        
+    def execute(self, reporter_id: uuid.UUID, reported_to_id: uuid.UUID, reason: str, room_id: Optional[uuid.UUID] = None) -> Any:
+        if reporter_id == reported_to_id:
+            raise ValidationError("Não podes denunciar-te a ti próprio.")
+            
+        reported_user = self.user_repo.get_by_id(reported_to_id)
+        if not reported_user:
+            raise NotFound("O utilizador que tentas denunciar não existe.")
+            
+        report = ReportEntity(
+            id=uuid.uuid4(),
+            reporter_id=reporter_id,
+            reported_to_id=reported_to_id,
+            room_id=room_id,
+            reason=reason,
+            status='pending',
+            admin_notes=''
+        )
+        saved_report = self.user_repo.save_report(report)
+        
+        # Notificar os admins
+        NotificationService.notify_admins(
+            notification_type='USER_REPORTED',
+            payload={
+                'reason_preview': reason[:50] + "..." if len(reason) > 50 else reason,
+                'reporter_name': self.user_repo.get_by_id(reporter_id).full_name,
+                'reported_name': reported_user.full_name
+            }
+        )
+        
+        return saved_report

@@ -1,0 +1,86 @@
+Traceback (most recent call last):
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\manage.py", line 20, in <module>
+    main()
+    ~~~~^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\manage.py", line 16, in main
+    execute_from_command_line(sys.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\management\__init__.py", line 442, in execute_from_command_line
+    utility.execute()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\management\__init__.py", line 436, in execute
+    self.fetch_command(subcommand).run_from_argv(self.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\management\base.py", line 413, in run_from_argv
+    self.execute(*args, **cmd_options)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\management\base.py", line 459, in execute
+    output = self.handle(*args, **options)
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\management\commands\check.py", line 76, in handle
+    self.check(
+    ~~~~~~~~~~^
+        app_configs=app_configs,
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        databases=options["databases"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\management\base.py", line 486, in check
+    all_issues = checks.run_checks(
+        app_configs=app_configs,
+    ...<2 lines>...
+        databases=databases,
+    )
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\checks\registry.py", line 88, in run_checks
+    new_errors = check(app_configs=app_configs, databases=databases)
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\checks\urls.py", line 14, in check_url_config
+    return check_resolver(resolver)
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\core\checks\urls.py", line 24, in check_resolver
+    return check_method()
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\urls\resolvers.py", line 519, in check
+    for pattern in self.url_patterns:
+                   ^^^^^^^^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\utils\functional.py", line 47, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+                                         ~~~~~~~~~^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\urls\resolvers.py", line 738, in url_patterns
+    patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+                       ^^^^^^^^^^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\utils\functional.py", line 47, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+                                         ~~~~~~~~~^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\urls\resolvers.py", line 731, in urlconf_module
+    return import_module(self.urlconf_name)
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python314\Lib\importlib\__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1342, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 938, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+  File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\app\urls.py", line 21, in <module>
+    path('api/auth/',          include('users.routes.urls')),
+                               ~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\venv\Lib\site-packages\django\urls\conf.py", line 39, in include
+    urlconf_module = import_module(urlconf_module)
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python314\Lib\importlib\__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1342, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 938, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+  File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\users\routes\urls.py", line 2, in <module>
+    from ..controllers.views import (
+    ...<5 lines>...
+    )
+  File "C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\users\controllers\views.py", line 21, in <module>
+    from ..services.use_cases import (
+    ...<3 lines>...
+    )
+ImportError: cannot import name 'SubmitReportUseCase' from 'users.services.use_cases' (C:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\users\services\use_cases.py)

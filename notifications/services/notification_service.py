@@ -73,6 +73,10 @@ class NotificationService:
             'title': 'Documento de Identidade Submetido',
             'body': '{actor} enviou a foto do BI para verificação (KYC).',
         },
+        NotificationType.USER_REPORTED: {
+            'title': 'Utilizador Denunciado',
+            'body': '{reporter_name} denunciou {reported_name} por: {reason_preview}',
+        },
     }
 
     @classmethod

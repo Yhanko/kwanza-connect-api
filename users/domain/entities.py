@@ -80,3 +80,17 @@ class UserEntity:
 
     def update_last_seen(self):
         self.last_seen = datetime.now()
+
+
+@dataclass
+class ReportEntity:
+    id: uuid.UUID
+    reporter_id: uuid.UUID
+    reported_to_id: uuid.UUID
+    room_id: Optional[uuid.UUID]
+    reason: str
+    status: str
+    admin_notes: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+

@@ -1,5 +1,8 @@
 from django.urls import path
-from .controllers.users import AdminUsersView, AdminUserDetailsView, AdminUserKYCView, AdminUserStatusView
+from .controllers.users import (
+    AdminUsersView, AdminUserDetailsView, AdminUserKYCView, AdminUserStatusView,
+    AdminUserSanctionView, AdminReportListView, AdminReportActionView, AdminUserDeleteView
+)
 from .controllers.offers import AdminOffersView, AdminOfferActionView
 from .controllers.dashboard import AdminDashboardStatsView, AdminAuditLogsView
 from .controllers.health import AdminSystemHealthView
@@ -21,6 +24,13 @@ urlpatterns = [
     path('users/<uuid:user_id>/', AdminUserDetailsView.as_view(), name='admin-user-details'),
     path('users/<uuid:user_id>/kyc/', AdminUserKYCView.as_view(), name='admin-user-kyc'),
     path('users/<uuid:user_id>/status/', AdminUserStatusView.as_view(), name='admin-user-status'),
+    path('users/<uuid:user_id>/sanction/', AdminUserSanctionView.as_view(), name='admin-user-sanction'),
+    path('users/<uuid:user_id>/delete/', AdminUserDeleteView.as_view(), name='admin-user-delete'),
+    
+    # Moderation
+    path('reports/', AdminReportListView.as_view(), name='admin-reports-list'),
+    path('reports/<uuid:report_id>/action/', AdminReportActionView.as_view(), name='admin-report-action'),
+
     
     # Offers
     path('offers/', AdminOffersView.as_view(), name='admin-offers-list'),

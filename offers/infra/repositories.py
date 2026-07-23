@@ -53,6 +53,9 @@ class DjangoOfferRepository(IOfferRepository):
                 country_code=django_offer.owner.country_code,
                 city=django_offer.owner.city,
                 address=django_offer.owner.address,
+                province=django_offer.owner.province,
+                municipality=django_offer.owner.municipality,
+                neighborhood=django_offer.owner.neighborhood,
                 occupation=django_offer.owner.occupation,
                 bio=django_offer.owner.bio,
                 avatar=django_offer.owner.avatar,
@@ -83,6 +86,8 @@ class DjangoOfferRepository(IOfferRepository):
             views_count=django_offer.views_count,
             city=django_offer.city,
             country_code=django_offer.country_code,
+            latitude=django_offer.latitude,
+            longitude=django_offer.longitude,
             implied_rate=django_offer.implied_rate,
             expires_at=django_offer.expires_at,
             created_at=django_offer.created_at,
@@ -109,6 +114,9 @@ class DjangoOfferRepository(IOfferRepository):
                 country_code=django_interest.buyer.country_code,
                 city=django_interest.buyer.city,
                 address=django_interest.buyer.address,
+                province=django_interest.buyer.province,
+                municipality=django_interest.buyer.municipality,
+                neighborhood=django_interest.buyer.neighborhood,
                 occupation=django_interest.buyer.occupation,
                 bio=django_interest.buyer.bio,
                 avatar=django_interest.buyer.avatar,
@@ -174,6 +182,8 @@ class DjangoOfferRepository(IOfferRepository):
                     'views_count': offer.views_count,
                     'city': offer.city,
                     'country_code': offer.country_code,
+                    'latitude': offer.latitude,
+                    'longitude': offer.longitude,
                     'expires_at': offer.expires_at,
                 }
             )
@@ -213,6 +223,8 @@ class DjangoOfferRepository(IOfferRepository):
                 Q(owner__full_name__icontains=search) |
                 Q(give_currency__code__icontains=search) |
                 Q(want_currency__code__icontains=search) |
+                Q(owner__province__icontains=search) |
+                Q(owner__municipality__icontains=search) |
                 Q(city__icontains=search)
             )
             
@@ -222,6 +234,10 @@ class DjangoOfferRepository(IOfferRepository):
             qs = qs.filter(want_currency__code__iexact=want)
         if city := filters.get('city'):
             qs = qs.filter(city__icontains=city)
+        if province := filters.get('province'):
+            qs = qs.filter(owner__province__iexact=province)
+        if municipality := filters.get('municipality'):
+            qs = qs.filter(owner__municipality__iexact=municipality)
         if min_amount := filters.get('min_amount'):
             qs = qs.filter(give_amount__gte=min_amount)
         if max_amount := filters.get('max_amount'):

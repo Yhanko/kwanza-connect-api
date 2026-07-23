@@ -3,7 +3,7 @@ import uuid
 from django.db import transaction
 from django.utils import timezone
 from ..models import User as DjangoUser, UserSecurity as DjangoUserSecurity, IdentityDocument as DjangoIdentityDocument
-from ..domain.entities import UserEntity, UserSecurityEntity, IdentityDocumentEntity
+from ..domain.entities import UserEntity, UserSecurityEntity, IdentityDocumentEntity, ReportEntity
 from ..domain.interfaces import IUserRepository
 from app.services.cloudinary_service import CloudinaryStorageService
 
@@ -93,6 +93,17 @@ class DjangoUserRepository(IUserRepository):
         except DjangoUser.DoesNotExist:
             return None
 
+    def search_users(self, filters: dict) -> List[UserEntity]:
+        """Pesquisa genérica de utilizadores com base em filtros."""
+        qs = DjangoUser.objects.all()
+        
+        if filters.get('search'):
+            from django.db.models import Q
+            s = filters['search']
+            qs = qs.filter(Q(full_name__icontains=s) | Q(email__icontains=s))
+            
+        return [self._to_entity(u) for u in qs]
+
     def get_by_email(self, email: str) -> Optional[UserEntity]:
         try:
             django_user = DjangoUser.objects.get(email=email)
@@ -102,6 +113,26 @@ class DjangoUserRepository(IUserRepository):
 
     def exists_by_email(self, email: str) -> bool:
         return DjangoUser.objects.filter(email=email).exists()
+
+    def get_count(self) -> int:
+        return DjangoUser.objects.count()
+
+    def save_report(self, report: ReportEntity) -> ReportEntity:
+        from ..models import Report as DjangoReport
+        defaults = {
+            'reporter_id': report.reporter_id,
+            'reported_to_id': report.reported_to_id,
+            'room_id': report.room_id,
+            'reason': report.reason,
+            'status': report.status,
+            'admin_notes': report.admin_notes
+        }
+        django_report, created = DjangoReport.objects.update_or_create(
+            id=report.id, defaults=defaults
+        )
+        report.created_at = django_report.created_at
+        report.updated_at = django_report.updated_at
+        return report
 
     def save(self, user_entity: UserEntity) -> UserEntity:
         with transaction.atomic():

@@ -60,6 +60,8 @@ class OfferListCreateView(APIView):
             'give_currency': request.query_params.get('give'),
             'want_currency': request.query_params.get('want'),
             'city':          request.query_params.get('city'),
+            'province':      request.query_params.get('province'),
+            'municipality':  request.query_params.get('municipality'),
             'min_amount':    request.query_params.get('min_amount'),
             'max_amount':    request.query_params.get('max_amount'),
             'order':         request.query_params.get('order'),

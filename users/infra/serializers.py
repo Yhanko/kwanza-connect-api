@@ -23,6 +23,21 @@ def validate_angolan_phone(value):
 
 
 # ─────────────────────────────────────────────
+#  Denúncias e Arbitragem
+# ─────────────────────────────────────────────
+
+class ReportCreateSerializer(serializers.Serializer):
+    reported_to_id = serializers.UUIDField(required=True)
+    room_id = serializers.UUIDField(required=False, allow_null=True)
+    reason = serializers.CharField(max_length=1000, required=True)
+    
+    def validate_reason(self, value):
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError('O motivo da denúncia é demasiado curto. Por favor justifique melhor.')
+        return value
+
+
+# ─────────────────────────────────────────────
 #  Registo e autenticação
 # ─────────────────────────────────────────────
 
@@ -180,15 +195,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model  = User
         fields = [
             'id', 'email', 'full_name', 'phone', 'country_code', 'province', 'municipality', 'neighborhood',
-            'province', 'municipality', 'neighborhood',
             'city', 'address', 'occupation', 'bio', 'avatar',
             'is_active', 'is_verified', 'is_available', 'is_staff',
             'verification_status', 'preferred_give_currency',
             'preferred_want_currency', 'last_seen', 'date_joined',
+            'suspended_until', 'restricted_pages'
         ]
         read_only_fields = [
             'id', 'email', 'is_active', 'is_verified', 'is_staff',
             'verification_status', 'last_seen', 'date_joined',
+            'suspended_until', 'restricted_pages'
         ]
 
     def get_avatar(self, obj):

@@ -70,6 +70,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_seen           = models.DateTimeField(null=True, blank=True)
     date_joined         = models.DateTimeField(default=timezone.now)
 
+    # --- Sanções e Arbitragem (Admin) ---
+    suspended_until     = models.DateTimeField(null=True, blank=True)
+    restricted_until    = models.DateTimeField(null=True, blank=True)
+    restricted_pages    = models.JSONField(default=list, blank=True)
+
     # --- Moedas preferenciais (para filtros rápidos) ---
     preferred_give_currency = models.CharField(max_length=10, blank=True)  # ex: AOA
     preferred_want_currency = models.CharField(max_length=10, blank=True)  # ex: USD
@@ -147,10 +152,14 @@ class IdentityDocument(models.Model):
         verbose_name = 'Documento de identidade'
 
     def clean(self):
-        from django.core.exceptions import ValidationError
+        super().clean()
+        if self.doc_number and not self.doc_number.isdigit():
+            from django.core.exceptions import ValidationError
+            raise ValidationError({'doc_number': 'Este campo apenas pode conter dígitos.'})
         has_images = self.front_image and self.back_image
         has_pdf    = bool(self.pdf_file)
         if not has_images and not has_pdf:
+            from django.core.exceptions import ValidationError
             raise ValidationError(
                 'Envie frente + verso do documento OU um ficheiro PDF.'
             )
@@ -255,3 +264,17 @@ class UserReport(models.Model):
 
     def __str__(self):
         return f'{self.reporter} denunciou {self.reported} — {self.get_reason_display()}'
+
+class Report(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reporter = models.ForeignKey(User, related_name='submitted_reports', on_delete=models.CASCADE)
+    reported_to = models.ForeignKey(User, related_name='received_reports', on_delete=models.CASCADE)
+    room_id = models.UUIDField(null=True, blank=True)
+    reason = models.TextField(max_length=1500)
+    status = models.CharField(max_length=20, default='pending')
+    admin_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
