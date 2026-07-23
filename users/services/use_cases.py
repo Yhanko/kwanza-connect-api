@@ -163,7 +163,10 @@ class LoginUseCase:
             )
 
         if not user.is_active:
-            raise AuthenticationFailed('Conta não activada. Verifique o seu email.')
+            if security and not security.email_verified:
+                raise AuthenticationFailed('Conta não activada. Verifique o seu email.')
+            else:
+                raise AuthenticationFailed('A conta encontra-se bloqueada, contacte o admin.')
 
         # Aqui ainda dependemos do Django authenticate ou de um serviço injetado
         from django.contrib.auth import authenticate
