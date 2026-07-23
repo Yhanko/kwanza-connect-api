@@ -37,6 +37,25 @@ class OfferCreateSerializer(serializers.Serializer):
     latitude            = serializers.DecimalField(max_digits=10, decimal_places=8, required=False, allow_null=True)
     longitude           = serializers.DecimalField(max_digits=11, decimal_places=8, required=False, allow_null=True)
     expires_at          = serializers.DateTimeField(required=False, allow_null=True)
+    payment_methods     = serializers.ListField(
+        child=serializers.CharField(max_length=50),
+        required=False, default=list, allow_empty=True
+    )
+
+    def validate_payment_methods(self, value):
+        allowed = {
+            "Multicaixa Express", "Aplicações Bancárias", "PayPay África",
+            "Unitel Money", "Afrimoney", "e-Kwanza", "AkiPaga", "Agiliza",
+            "eKumbu", "BNIX", "Wise", "Payoneer", "PayPal", "Remitly",
+            "Binance", "Bybit", "outra"
+        }
+        for method in value:
+            if method not in allowed:
+                raise serializers.ValidationError(
+                    f'Método the pagamento não suportado: {method}'
+                )
+        return value
+
 
     def validate(self, data):
         if data.get('give_currency_code') == data.get('want_currency_code'):
@@ -59,6 +78,7 @@ class OfferSerializer(serializers.Serializer):
     spread_percentage       = serializers.SerializerMethodField()
     offer_type              = serializers.CharField()
     status                  = serializers.CharField()
+    payment_methods         = serializers.ListField(child=serializers.CharField(), allow_empty=True, required=False)
     is_active               = serializers.BooleanField()
     notes                   = serializers.CharField()
     city                    = serializers.CharField()

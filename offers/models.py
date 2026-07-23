@@ -120,6 +120,13 @@ class Offer(models.Model):
 
     offer_type    = models.CharField(max_length=4, choices=OFFER_TYPE, default='sell')
     status        = models.CharField(max_length=10, choices=STATUS, default='active')
+    
+    payment_methods = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='Ex: ["Multicaixa Express", "Wise", "PayPal"]'
+    )
+    
     notes         = models.TextField(
         max_length=500, blank=True,
         help_text='Observações visíveis a outros utilizadores.'
