@@ -44,6 +44,7 @@ class DjangoOfferRepository(IOfferRepository):
             owner_entity = UserEntity(
                 id=django_offer.owner.id,
                 email=django_offer.owner.email,
+                username=django_offer.owner.username,
                 full_name=django_offer.owner.full_name,
                 is_active=django_offer.owner.is_active,
                 is_verified=django_offer.owner.is_verified,
@@ -105,6 +106,7 @@ class DjangoOfferRepository(IOfferRepository):
             buyer_entity = UserEntity(
                 id=django_interest.buyer.id,
                 email=django_interest.buyer.email,
+                username=django_interest.buyer.username,
                 full_name=django_interest.buyer.full_name,
                 is_active=django_interest.buyer.is_active,
                 is_verified=django_interest.buyer.is_verified,
