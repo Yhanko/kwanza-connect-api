@@ -70,6 +70,9 @@ pytest users/tests/unit/ -v
 
 # Apenas os testes end-to-end (e2e - Integração global total com o DB real/teste)
 pytest offers/tests/e2e/ -v
+
+venv\Scripts\python.exe manage.py graph_models -a -o erd.png
+venv\Scripts\python.exe manage.py graph_models -a > erd.dot
 ```
 
 ---

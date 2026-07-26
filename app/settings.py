@@ -213,6 +213,7 @@ CELERY_TIMEZONE      = 'Africa/Luanda'
 CELERY_TASK_SERIALIZER   = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT    = ['json']
+CELERY_IMPORTS           = ['rates.infra.tasks']
 
 from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
