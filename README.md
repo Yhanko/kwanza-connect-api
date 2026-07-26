@@ -17,7 +17,7 @@ Este projeto foi idealizado e desenvolvido por **Romeu Cajamba**.
 ---
 
 ## 🛠️ Tecnologias Utilizadas
-- **Linguagem & Framework Base:** Python 3.10+ & Django 4.2+
+- **Linguagem & Framework Base:** Python 3.14+ & Django 4.2+
 - **APIs RESTful:** Django REST Framework (DRF)
 - **Real-Time (Chat & Notificações):** Django Channels (WebSockets) com Redis Layer
 - **Media Storage (Imagens e Documentos KYC):** Integração com **Cloudinary** API
