@@ -74,7 +74,12 @@ pytest offers/tests/e2e/ -v
 venv\Scripts\python.exe manage.py graph_models -a -o erd.png
 venv\Scripts\python.exe manage.py graph_models -a > erd.dot
 ```
+Criação do superuser
+venv\Scripts\python.exe manage.py createsuperuser
 
+Super user: romeucajamba07
+Email: [romeucajamba@gmail.com]
+Password: [PASSWORD]
 ---
 
 ## ⚖️ Regras de Negócio Importantes
