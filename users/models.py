@@ -42,6 +42,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # --- Credenciais ---
     email               = models.EmailField(unique=True)
+    username            = models.CharField(max_length=150, unique=True, null=True, blank=True)
 
     # --- Dados pessoais ---
     full_name           = models.CharField(max_length=150)

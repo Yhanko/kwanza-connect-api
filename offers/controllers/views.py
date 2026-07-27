@@ -77,7 +77,18 @@ class OfferListCreateView(APIView):
         repo = DjangoOfferRepository()
         serializer = OfferCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        offer = CreateOfferUseCase(repo).execute(user_id=request.user.id, data=serializer.validated_data)
+        data_to_save = serializer.validated_data.copy()
+
+        # Fallback the Localização se o GPS falhar (cidade não enviada ou latitude nula)
+        if not data_to_save.get('latitude') and not data_to_save.get('city'):
+            prov = getattr(request.user, 'province', '')
+            mun = getattr(request.user, 'municipality', '')
+            if prov and mun:
+                data_to_save['city'] = f"{mun} - {prov}"
+            elif prov:
+                data_to_save['city'] = prov
+
+        offer = CreateOfferUseCase(repo).execute(user_id=request.user.id, data=data_to_save)
         
         # Auditoria
         audit_log(

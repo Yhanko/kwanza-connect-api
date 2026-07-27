@@ -44,6 +44,7 @@ class DjangoOfferRepository(IOfferRepository):
             owner_entity = UserEntity(
                 id=django_offer.owner.id,
                 email=django_offer.owner.email,
+                username=django_offer.owner.username,
                 full_name=django_offer.owner.full_name,
                 is_active=django_offer.owner.is_active,
                 is_verified=django_offer.owner.is_verified,
@@ -80,6 +81,7 @@ class DjangoOfferRepository(IOfferRepository):
             want_currency_id=django_offer.want_currency_id,
             want_amount=django_offer.want_amount,
             exchange_rate_snapshot=django_offer.exchange_rate_snapshot,
+            payment_methods=django_offer.payment_methods,
             offer_type=django_offer.offer_type,
             status=django_offer.status,
             notes=django_offer.notes,
@@ -105,6 +107,7 @@ class DjangoOfferRepository(IOfferRepository):
             buyer_entity = UserEntity(
                 id=django_interest.buyer.id,
                 email=django_interest.buyer.email,
+                username=django_interest.buyer.username,
                 full_name=django_interest.buyer.full_name,
                 is_active=django_interest.buyer.is_active,
                 is_verified=django_interest.buyer.is_verified,
@@ -176,6 +179,7 @@ class DjangoOfferRepository(IOfferRepository):
                     'want_currency_id': offer.want_currency_id,
                     'want_amount': offer.want_amount,
                     'exchange_rate_snapshot': offer.exchange_rate_snapshot,
+                    'payment_methods': offer.payment_methods,
                     'offer_type': offer.offer_type,
                     'status': offer.status,
                     'notes': offer.notes,

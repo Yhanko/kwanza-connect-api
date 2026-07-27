@@ -34,6 +34,7 @@ class OfferEntity:
     exchange_rate_snapshot: Decimal
     offer_type: str = 'sell'
     status: str = 'active'
+    payment_methods: List[str] = field(default_factory=list)
     notes: str = ""
     views_count: int = 0
     city: str = ""

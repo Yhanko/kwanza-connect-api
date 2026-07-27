@@ -60,6 +60,7 @@ class CreateOfferUseCase:
             want_currency_id=want_currency.id,
             want_amount=Decimal(str(data['want_amount'])),
             exchange_rate_snapshot=rate_snapshot,
+            payment_methods=data.get('payment_methods', []),
             offer_type=data.get('offer_type', 'sell'),
             notes=data.get('notes', ''),
             city=data.get('city', ''),

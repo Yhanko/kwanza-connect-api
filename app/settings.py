@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Third-party
+    'django_extensions',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -212,6 +213,7 @@ CELERY_TIMEZONE      = 'Africa/Luanda'
 CELERY_TASK_SERIALIZER   = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT    = ['json']
+CELERY_IMPORTS           = ['rates.infra.tasks']
 
 from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {

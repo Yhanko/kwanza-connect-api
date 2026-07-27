@@ -131,7 +131,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model  = User
         fields = [
-            'id', 'full_name', 'email', 'phone', 'country_code', 'city', 'province', 'municipality', 'neighborhood',
+            'id', 'full_name', 'username', 'email', 'phone', 'country_code', 'city', 'province', 'municipality', 'neighborhood',
             'bio', 'avatar', 'is_available', 'is_verified',
             'preferred_give_currency', 'preferred_want_currency',
             'date_joined', 'average_rating', 'reviews_count', 'recent_reviews'
@@ -194,7 +194,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model  = User
         fields = [
-            'id', 'email', 'full_name', 'phone', 'country_code', 'province', 'municipality', 'neighborhood',
+            'id', 'email', 'username', 'full_name', 'phone', 'country_code', 'province', 'municipality', 'neighborhood',
             'city', 'address', 'occupation', 'bio', 'avatar',
             'is_active', 'is_verified', 'is_available', 'is_staff',
             'verification_status', 'preferred_give_currency',
@@ -202,7 +202,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'suspended_until', 'restricted_pages'
         ]
         read_only_fields = [
-            'id', 'email', 'is_active', 'is_verified', 'is_staff',
+            'id', 'email', 'username', 'is_active', 'is_verified', 'is_staff',
             'verification_status', 'last_seen', 'date_joined',
             'suspended_until', 'restricted_pages'
         ]

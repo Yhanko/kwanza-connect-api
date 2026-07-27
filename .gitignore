@@ -9,3 +9,9 @@ __pycache__/
 .pytest_cache
 api-routes-postman.md
 capture_tests.py
+err.log
+api-routes-postman.md
+capture_tests.py
+check_err.txt
+trace.txt
+check_err.txt
