@@ -139,10 +139,11 @@ class OfferInterestCreateSerializer(serializers.ModelSerializer):
 
 class OfferInterestSerializer(serializers.ModelSerializer):
     buyer = PublicUserSerializer(read_only=True)
+    offer = OfferSerializer(read_only=True)
 
     class Meta:
         model  = OfferInterest
         fields = [
-            'id', 'buyer', 'status', 'message',
+            'id', 'buyer', 'offer', 'status', 'message',
             'room', 'created_at', 'responded_at',
         ]
