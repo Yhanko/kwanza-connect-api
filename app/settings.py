@@ -12,13 +12,18 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
-# Headers de Segurança
+# Cabeçalhos HTTP de Segurança & Hardening:
+# - SECURE_BROWSER_XSS_FILTER: Ativa o filtro XSS do navegador.
+# - SECURE_CONTENT_TYPE_NOSNIFF: Evita vulnerabilidades de MIME-type sniffing.
+# - X_FRAME_OPTIONS = 'DENY': Previne ataques de Clickjacking ao proibir a inclusão em iframes.
+# - SECURE_REFERRER_POLICY: Restringe a exposição de dados sensíveis no cabeçalho Referer HTTP.
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'same-origin'
 
-# Configuração de Sessão e CSRF Seguros (HTTPS em produção)
+# Configuração de Sessão e CSRF Seguros (HTTPS em produção):
+# Força cookies apenas via HTTPS, redirecionamento SSL e preloading HSTS para prevenir ataques MitM.
 if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
@@ -115,18 +120,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'app.wsgi.application'
 ASGI_APPLICATION   = 'app.asgi.application'
 
+import dj_database_url
+
 # ─────────────────────────────────────────────
 #  Database
 # ─────────────────────────────────────────────
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME':     config('DB_NAME'),
-        'USER':     config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST':     config('DB_HOST', default='localhost'),
-        'PORT':     config('DB_PORT', default='5432'),
-    }
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL', default='postgres://postgres:postgres@127.0.0.1:5432/kwanza_connect'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 # ─────────────────────────────────────────────
@@ -155,6 +159,9 @@ CHANNEL_LAYERS = {
 #  Django REST Framework
 # ─────────────────────────────────────────────
 REST_FRAMEWORK = {
+    # INTEGRAÇÃO JWT - CLASSE DE AUTENTICAÇÃO PADRÃO:
+    # O Django REST Framework intercepta cada requisição HTTP recebida e valida o cabeçalho 'Authorization: Bearer <access_token>'.
+    # Se o token JWT for válido e não estiver expirado, o utilizador é autenticado automaticamente em request.user.
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -162,6 +169,11 @@ REST_FRAMEWORK = {
         'security.permissions.HasAPIKey',
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # PROTEÇÃO DE RATE LIMITING (THROTTLING):
+    # Controla a frequência de requisições por cliente para evitar ataques DoS, força bruta e abusos.
+    # - AnonRateThrottle: Limita visitantes não autenticados pelo endereço IP (10 requisições/minuto).
+    # - UserRateThrottle: Limita utilizadores autenticados pelo ID do utilizador no JWT (100 requisições/minuto).
+    # Requisições que excedam estes limites recebem HTTP 429 (Too Many Requests). O contador usa cache em Redis.
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
@@ -182,8 +194,15 @@ REST_FRAMEWORK = {
 }
 
 # ─────────────────────────────────────────────
-#  JWT
+#  JWT - PARÂMETROS E REGRAS DE SEGURANÇA DOS TOKENS
 # ─────────────────────────────────────────────
+# Configurações do SimpleJWT:
+# - ACCESS_TOKEN_LIFETIME: Validade do token de acesso (60 minutos por padrão). Usado para autenticar requisições.
+# - REFRESH_TOKEN_LIFETIME: Validade do token de renovação (7 dias). Usado para obter novo access token.
+# - ROTATE_REFRESH_TOKENS: Quando True, ao renovar o access token, gera também um novo refresh token.
+# - BLACKLIST_AFTER_ROTATION: Quando True, o refresh token antigo é invalidado na base de dados (tabela BlacklistedToken).
+# - AUTH_HEADER_TYPES: Prefixo do cabeçalho de autorização. Requer 'Authorization: Bearer <token>'.
+# - UPDATE_LAST_LOGIN: Atualiza o campo last_login do utilizador na BD ao emitir token.
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME':  timedelta(minutes=config('JWT_ACCESS_MINUTES', default=60, cast=int)),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=config('JWT_REFRESH_DAYS', default=7, cast=int)),
@@ -244,13 +263,16 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL  = config('DEFAULT_FROM_EMAIL', default='KwanzaConnect <noreply@kwanzaconnect.ao>')
 
 # ─────────────────────────────────────────────
-#  Exchange Rate API
+#  Exchange Rate & Geolocation APIs
 # ─────────────────────────────────────────────
 EXCHANGE_RATE_API_KEY = config('EXCHANGE_RATE_API_KEY', default='')
 EXCHANGE_RATE_BASE_URL = config(
     'EXCHANGE_RATE_BASE_URL',
     default='https://open.er-api.com/v6/latest'
 )
+EXCHANGE_RATE_TIMEOUT = config('EXCHANGE_RATE_TIMEOUT', default=15, cast=int)
+GEOLOCATION_TIMEOUT    = config('GEOLOCATION_TIMEOUT', default=15, cast=int)
+
 
 # ─────────────────────────────────────────────
 #  Auth & i18n
@@ -258,6 +280,11 @@ EXCHANGE_RATE_BASE_URL = config(
 # ── Autenticação & Hashing ──────────────────────────────────────────
 AUTH_USER_MODEL = 'users.User'
 
+# ESTRATÉGIA DE CRIPTOGRAFIA E HASHING DE SENHAS DO UTILIZADOR:
+# Configura os algoritmos de hashing de senhas. O Django utiliza o primeiro hasher (Argon2) para novas senhas.
+# - Argon2PasswordHasher: Algoritmo vencedor da Password Hashing Competition (PHC), padrão ouro moderno
+#   que utiliza Argon2id com alta resistência de memória, salt automático individual e parâmetros de custo de CPU.
+# - PBKDF2 / BCrypt: Fornecidos como fallbacks seguros e para compatibilidade na verificação.
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.Argon2PasswordHasher',
     'django.contrib.auth.hashers.PBKDF2PasswordHasher',
@@ -285,6 +312,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL   = '/media/'
 MEDIA_ROOT  = BASE_DIR / 'media'
 SITE_URL    = config('SITE_URL', default='http://localhost:8000')
+
+# ─────────────────────────────────────────────
+#  Admin Secret Key
+# ─────────────────────────────────────────────
+ADMIN_SECRET_KEY = config('ADMIN_SECRET', default=config('ADMIN_SECRET_KEY', default='KWANZA_ADMIN_SECURE_2026'))
 
 
 # ─────────────────────────────────────────────

@@ -94,6 +94,9 @@ class DjangoUserRepository(IUserRepository):
         except DjangoUser.DoesNotExist:
             return None
 
+    # PROTEÇÃO CONTRA SQL INJECTION:
+    # O Django ORM utiliza consultas SQL parametrizadas (Prepared Statements) por padrão.
+    # As entradas do utilizador passadas para filter() ou objetos Q() são sanitizadas e escapadas com segurança pelo driver da base de dados.
     def search_users(self, filters: dict) -> List[UserEntity]:
         """Pesquisa genérica de utilizadores com base em filtros."""
         qs = DjangoUser.objects.all()
@@ -167,7 +170,9 @@ class DjangoUserRepository(IUserRepository):
                 }
             )
 
-            # Persistência e Hashing de senha (apenas se for uma nova senha raw fornecida)
+            # CRIPTOGRAFIA E HASHING DE SENHA:
+            # Gera o hash da senha em texto limpo utilizando o hasher padrão configurado (Argon2id).
+            # Cria um salt aleatório por utilizador e aplica derivação de chave de memória antes da persistência na BD.
             if user_entity.password and not user_entity.password.startswith(('pbkdf2_', 'argon2$', 'bcrypt$')):
                 django_user.set_password(user_entity.password)
 

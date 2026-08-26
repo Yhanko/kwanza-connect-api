@@ -217,14 +217,16 @@ class LoginUseCase:
                     code='account_blocked'
                 )
 
-        # Aqui ainda dependemos do Django authenticate ou de um serviço injetado
+        # AUTENTICAÇÃO DE SENHA E VERIFICAÇÃO EM TEMPO CONSTANTE:
+        # O authenticate() do Django lê o hash Argon2 armazenado, extrai o salt do utilizador,
+        # gera o hash da senha informada e compara em tempo constante para evitar timing attacks.
         from django.contrib.auth import authenticate
         django_user = authenticate(username=email, password=password)
         
         if not django_user:
             if security:
-                # O repositório ou a lógica de domínio deve incrementar falhas
-                # Por simplicidade aqui faremos via manual, mas Clean Code sugere método na entidade
+                # PROTEÇÃO CONTRA ATAQUES DE FORÇA BRUTA (LOCKOUT DE CONTA):
+                # Regista tentativas consecutivas de login falhadas e bloqueia a conta por 15 minutos após 5 falhas.
                 security.failed_login_attempts += 1
                 if security.failed_login_attempts >= 5:
                     from datetime import datetime, timedelta
@@ -253,7 +255,10 @@ class LoginUseCase:
                 metadata={'method': 'jwt'}
             )
 
-        # Geração de tokens (Ainda dependente do SimpleJWT/Django no momento)
+        # EMISSÃO DE TOKENS JWT NO LOGIN BEM-SUCEDIDO:
+        # Utiliza o SimpleJWT para criar um par de tokens para o utilizador autenticado:
+        # 1. access_token: Usado no cabeçalho 'Authorization: Bearer <token>' em todas as requisições autenticadas (expira em 60m).
+        # 2. refresh_token: Usado para obter um novo par de tokens quando o access token expirar (expira em 7d).
         from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(django_user)
         return {
@@ -297,11 +302,14 @@ class ChangePasswordUseCase:
         from ..models import User
         django_user = User.objects.get(id=user_id)
         
+        # VERIFICAÇÃO E RE-HASHING DE SENHA:
+        # check_password() valida a senha actual contra o hash Argon2 armazenado utilizando avaliação em tempo constante.
         if not django_user.check_password(current_password):
             raise ValidationError({'current_password': 'Senha actual incorrecta.'})
         if current_password == new_password:
             raise ValidationError({'new_password': 'A nova senha deve ser diferente da actual.'})
             
+        # set_password() criptografa a nova senha utilizando Argon2id com um novo salt aleatório.
         django_user.set_password(new_password)
         django_user.save(update_fields=['password'])
 

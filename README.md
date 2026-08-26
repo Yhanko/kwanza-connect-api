@@ -55,9 +55,9 @@ Cada módulo central (`users`, `offers`, `chat`, `notifications`, `rates`, `tran
 ---
 
 ## 🧪 Testes e Qualidade
-A API conta com uma suíte de testes automatizados construída sobre `pytest` e `pytest-django`. 
+A API conta com uma suíte de testes automatizados construída sobre `pytest` e `pytest-django`, além de suporte para testes de carga com `Locust`.
 
-**Para os desenvolvedores:**
+### 1️⃣ Testes Automatizados (pytest)
 ```bash
 # 1. Ativar o ambiente virtual (Windows)
 .\venv\Scripts\activate
@@ -70,16 +70,39 @@ pytest users/tests/unit/ -v
 
 # Apenas os testes end-to-end (e2e - Integração global total com o DB real/teste)
 pytest offers/tests/e2e/ -v
+```
 
+### 2️⃣ Testes de Carga e Performance (Locust)
+O projeto inclui o ficheiro `locustfile.py` para simular acessos concorrentes aos endpoints da API (autenticação, registo, perfis públicos).
+
+```bash
+# 1. Instalar o Locust (caso ainda não esteja instalado no ambiente virtual)
+pip install locust
+
+# 2. Iniciar a interface Web do Locust (Host padrão da API: http://localhost:8000)
+locust -f locustfile.py --host=http://localhost:8000
+# Ou simplesmente (estando na raiz do projeto):
+locust
+
+# 3. Aceder ao painel interativo no navegador:
+# http://localhost:8089
+
+# (Opcional) Executar testes em modo headless (sem interface gráfica):
+locust -f locustfile.py --headless -u 10 -r 2 --run-time 1m --host=http://localhost:8000
+```
+
+### 3️⃣ Utilitários (Diagrama ERD & Superuser)
+```bash
+# Gerar diagrama de entidade-relacionamento (ERD)
 venv\Scripts\python.exe manage.py graph_models -a -o erd.png
 venv\Scripts\python.exe manage.py graph_models -a > erd.dot
-```
-Criação do superuser
-venv\Scripts\python.exe manage.py createsuperuser
 
-Super user: romeucajamba07
-Email: [romeucajamba@gmail.com]
-Password: [PASSWORD]
+# Criar Superusuário
+venv\Scripts\python.exe manage.py createsuperuser
+```
+
+Super user: `romeucajamba07`
+Email: `romeucajamba@gmail.com`
 ---
 
 ## ⚖️ Regras de Negócio Importantes
