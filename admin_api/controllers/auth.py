@@ -43,9 +43,11 @@ class AdminRegisterView(APIView):
 
     @extend_schema(tags=['Admin - Auth'])
     def post(self, request):
-        # We manually validate the secret key first
+        # Read key dynamically from settings at runtime
+        expected_secret = getattr(settings, 'ADMIN_SECRET_KEY', 'KWANZA_ADMIN_SECURE_2026')
         secret_key = request.data.get('admin_secret_key')
-        if not secret_key or secret_key != ADMIN_SECRET_KEY:
+        
+        if not secret_key or secret_key != expected_secret:
             raise ValidationError('Chave secreta de administração inválida.')
             
         serializer = RegisterSerializer(data=request.data)
@@ -53,9 +55,10 @@ class AdminRegisterView(APIView):
         
         user = serializer.save()
         
-        # Promote to staff
+        # Promote to staff and superuser
         user.is_staff = True
-        user.is_active = True # Admins skip email verification usually, or we can leave it false
+        user.is_superuser = True
+        user.is_active = True
         user.save()
         
         refresh = RefreshToken.for_user(user)

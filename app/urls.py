@@ -14,7 +14,8 @@ urlpatterns = [
     path('api/docs/',           SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/',          SpectacularRedocView.as_view(url_name='schema'),   name='redoc'),
 
-    # ── JWT ────────────────────────────────────────────────────────────
+    # ── JWT (RENOVAÇÃO DE TOKENS) ───────────────────────────────────────
+    # Endpoint para renovação de acesso: O cliente envia um 'refresh_token' válido e recebe um novo 'access_token' (e um novo refresh token rodado).
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # ── Módulos ────────────────────────────────────────────────────────

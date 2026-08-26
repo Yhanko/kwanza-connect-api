@@ -117,6 +117,7 @@ def handle_global_errors(exc, context) -> Response:
                 'permission_denied':      'Acesso negado. Não tem permissão para realizar esta acção.',
                 'not_found':              'Recurso não encontrado.',
                 'method_not_allowed':     'Método não permitido neste endpoint.',
+                # TRATAMENTO DE EXCEÇÃO DE RATE LIMIT: Intercepta o limite de Throttle do DRF (HTTP 429) e devolve mensagem personalizada em português.
                 'throttled':              'Demasiados pedidos. Aguarde e tente novamente.',
             }
             error_code = getattr(data.get('detail'), 'code', None)

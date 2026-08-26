@@ -24,6 +24,8 @@ from ..services.use_cases import (
 )
 from ..infra.repositories import DjangoOfferRepository
 from ..infra.services import DjangoChatService, DjangoNotificationService
+from app.services.location_service import LocationService
+from django.conf import settings
 import uuid
 from app.audit_service import audit_log
 
@@ -79,14 +81,29 @@ class OfferListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         data_to_save = serializer.validated_data.copy()
 
-        # Fallback the Localização se o GPS falhar (cidade não enviada ou latitude nula)
-        if not data_to_save.get('latitude') and not data_to_save.get('city'):
+        # Tenta capturar a localização real do utilizador se as coordenadas forem enviadas e a cidade não
+        lat = data_to_save.get('latitude')
+        lon = data_to_save.get('longitude')
+        if not data_to_save.get('city') and lat is not None and lon is not None:
+            resolved_city = LocationService.reverse_geocode(
+                latitude=float(lat),
+                longitude=float(lon),
+                timeout=getattr(settings, 'GEOLOCATION_TIMEOUT', 15)
+            )
+            if resolved_city:
+                data_to_save['city'] = resolved_city
+
+        # Fallback de localização se o GPS ou serviço externo falhar/estourar timeout
+        if not data_to_save.get('city'):
             prov = getattr(request.user, 'province', '')
             mun = getattr(request.user, 'municipality', '')
+            user_city = getattr(request.user, 'city', '')
             if prov and mun:
                 data_to_save['city'] = f"{mun} - {prov}"
             elif prov:
                 data_to_save['city'] = prov
+            elif user_city:
+                data_to_save['city'] = user_city
 
         offer = CreateOfferUseCase(repo).execute(user_id=request.user.id, data=data_to_save)
         

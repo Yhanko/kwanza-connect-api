@@ -136,6 +136,9 @@ class LogoutView(APIView):
             from rest_framework.exceptions import ValidationError
             raise ValidationError({'refresh': 'O token de refresh é obrigatório.'})
         try:
+            # INVALIDAÇÃO DE TOKEN JWT (BLACKLIST NO LOGOUT):
+            # Adiciona o refresh_token enviado à lista negra (tabela BlacklistedToken na BD).
+            # Impede que o token de refresh seja reutilizado futuramente para gerar novos tokens de acesso.
             token = RefreshToken(refresh_token)
             token.blacklist()
         except Exception:

@@ -29,7 +29,8 @@ class ExchangeRateAPIProvider(IRateProvider):
             url += f'?apikey={self.api_key}'
 
         try:
-            response = requests.get(url, timeout=REQUEST_TIMEOUT)
+            timeout = getattr(settings, 'EXCHANGE_RATE_TIMEOUT', 15)
+            response = requests.get(url, timeout=timeout)
             response.raise_for_status()
             data = response.json()
         except requests.Timeout:
