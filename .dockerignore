@@ -1,0 +1,71 @@
+# ==========================================
+# Ambientes e Segredos
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# Git
+# ==========================================
+.git
+.gitignore
+.github
+
+# ==========================================
+# Python, Cache e Ambientes Virtuais
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==========================================
+# Testes, Cobertura e Logs de Debug
+# ==========================================
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+trace.txt
+check_err.txt
+check.py
+capture_tests.py
+test_serializer.py
+test_usecase.py
+fixture_temp.json
+locustfile.py
+
+# ==========================================
+# Base de Dados Local e Celery
+# ==========================================
+*.sqlite3
+celerybeat-schedule*
+erd.dot
+erd.png
+
+# ==========================================
+# Media e Ficheiros Estáticos Locais
+# ==========================================
+media/
+staticfiles/
+tmp/

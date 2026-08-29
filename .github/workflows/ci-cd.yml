@@ -1,0 +1,112 @@
+name: CI/CD Pipeline - KwanzaConnect API
+
+on:
+  push:
+    branches: [ "main", "master", "develop", "stage" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  # ========================================================
+  # 1. Testes Automatizados e Qualidade de Código
+  # ========================================================
+  test:
+    name: Test & Quality Checks
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: kwanza_test_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      SECRET_KEY: "ci-secret-key-for-testing-only"
+      DEBUG: "True"
+      ALLOWED_HOSTS: "localhost,127.0.0.1"
+      DATABASE_URL: "postgres://postgres:postgrespassword@localhost:5432/kwanza_test_db"
+      REDIS_URL: "redis://localhost:6379/0"
+      CLOUDINARY_CLOUD_NAME: "demo"
+      CLOUDINARY_API_KEY: "123456"
+      CLOUDINARY_API_SECRET: "abcdef"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-django flake8
+
+      - name: Lint with flake8 (Code Quality)
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=venv,.venv,migrations
+
+      - name: Run Django Tests with Pytest
+        run: |
+          pytest --disable-warnings
+
+  # ========================================================
+  # 2. Build da Imagem Docker & Validação de Segurança
+  # ========================================================
+  build-docker:
+    name: Build & Validate Docker Container
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./dockerfile
+          push: false
+          tags: kwanzaconnect-api:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      - name: Move Docker cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
