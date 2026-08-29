@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
-from .entities import UserEntity, UserSecurityEntity, IdentityDocumentEntity
+from .entities import UserEntity, UserSecurityEntity, IdentityDocumentEntity, ReportEntity
 import uuid
 
 class IUserRepository(ABC):
@@ -14,7 +14,7 @@ class IUserRepository(ABC):
         pass
         
     @abstractmethod
-    def save_report(self, report: 'ReportEntity') -> 'ReportEntity':
+    def save_report(self, report: ReportEntity) -> ReportEntity:
         pass
 
     
