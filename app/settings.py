@@ -129,9 +129,11 @@ import dj_database_url
 # ─────────────────────────────────────────────
 #  Database
 # ─────────────────────────────────────────────
+DATABASE_URL = config('DATABASE_URL', default='postgres://postgres:postgres@127.0.0.1:5432/kwanza_connect').split('#')[0].strip()
+
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL', default='postgres://postgres:postgres@127.0.0.1:5432/kwanza_connect'),
+        default=DATABASE_URL,
         conn_max_age=600,
         conn_health_checks=True,
     )
@@ -140,7 +142,7 @@ DATABASES = {
 # ─────────────────────────────────────────────
 #  Cache (Redis)
 # ─────────────────────────────────────────────
-REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0').split('#')[0].strip()
 
 CACHES = {
     'default': {
@@ -331,9 +333,9 @@ import cloudinary.uploader
 import cloudinary.api
 
 cloudinary.config(
-    cloud_name = config('CLOUDINARY_CLOUD_NAME'),
-    api_key    = config('CLOUDINARY_API_KEY'),
-    api_secret = config('CLOUDINARY_API_SECRET'),
+    cloud_name = config('CLOUDINARY_CLOUD_NAME', default='').split('#')[0].strip(),
+    api_key    = config('CLOUDINARY_API_KEY', default='').split('#')[0].strip(),
+    api_secret = config('CLOUDINARY_API_SECRET', default='').split('#')[0].strip(),
     secure     = True
 )
 
