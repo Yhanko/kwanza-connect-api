@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ── Security & Hardening ───────────────────────────────────────────
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = [h.strip().split('#')[0].strip() for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',') if h.strip().split('#')[0].strip()]
 
 # Cabeçalhos HTTP de Segurança & Hardening:
 # - SECURE_BROWSER_XSS_FILTER: Ativa o filtro XSS do navegador.
@@ -83,10 +83,14 @@ MIDDLEWARE = [
 # ─────────────────────────────────────────────
 #  CORS
 # ─────────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
-).split(',')
+CORS_ALLOWED_ORIGINS = [
+    origin.strip().split('#')[0].strip()
+    for origin in config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
+    ).split(',')
+    if origin.strip().split('#')[0].strip()
+]
 CORS_ALLOW_CREDENTIALS = True
 
 # Cabeçalhos personalizados permitidos

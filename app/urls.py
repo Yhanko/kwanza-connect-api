@@ -4,8 +4,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from rest_framework_simplejwt.views import TokenRefreshView
+from app.health import health_check
 
 urlpatterns = [
+    # ── Health Check (Docker / Load Balancer) ───────────────────────────
+    path('api/health/',         health_check,                  name='health_check'),
+
     # ── Admin ──────────────────────────────────────────────────────────
     path('admin/', admin.site.urls),
 
