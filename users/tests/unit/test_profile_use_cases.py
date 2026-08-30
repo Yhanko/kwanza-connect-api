@@ -8,7 +8,8 @@ from users.domain.entities import UserEntity, IdentityDocumentEntity
 from users.domain.interfaces import IUserRepository
 from app.services.storage import IStorageService
 
-def test_update_profile_success():
+@patch('users.services.use_cases.NotificationService.notify_admins')
+def test_update_profile_success(mock_notify):
     mock_repo = Mock(spec=IUserRepository)
     mock_storage = Mock(spec=IStorageService)
     
@@ -26,6 +27,7 @@ def test_update_profile_success():
     assert updated_user.full_name == "New Name"
     assert updated_user.city == "Luanda"
     mock_repo.save.assert_called_once_with(user)
+    mock_notify.assert_called_once()
 
 def test_update_profile_user_not_found():
     mock_repo = Mock(spec=IUserRepository)
@@ -37,7 +39,8 @@ def test_update_profile_user_not_found():
         use_case.execute(uuid.uuid4(), full_name="New Name")
     assert "Utilizador não encontrado" in str(exc.value)
 
-def test_submit_kyc_success_new_doc():
+@patch('users.services.use_cases.NotificationService.notify_admins')
+def test_submit_kyc_success_new_doc(mock_notify):
     mock_repo = Mock(spec=IUserRepository)
     user_id = uuid.uuid4()
     user = UserEntity(id=user_id, email="test@example.com", full_name="Test", verification_status='unverified')
@@ -49,7 +52,7 @@ def test_submit_kyc_success_new_doc():
     
     doc_data = {
         'doc_type': 'bi',
-        'doc_number': '123456789',
+        'doc_number': '002367037LA033',
         'front_image': 'url_front',
         'back_image': 'url_back'
     }
@@ -59,11 +62,12 @@ def test_submit_kyc_success_new_doc():
     mock_repo.save_kyc_document.assert_called_once()
     saved_doc = mock_repo.save_kyc_document.call_args[0][0]
     assert saved_doc.doc_type == 'bi'
-    assert saved_doc.doc_number == '123456789'
+    assert saved_doc.doc_number == '002367037LA033'
     assert saved_doc.status == 'pending'
     
     assert user.verification_status == 'submitted'
     mock_repo.save.assert_called_once_with(user)
+    mock_notify.assert_called_once()
 
 def test_submit_kyc_already_approved():
     mock_repo = Mock(spec=IUserRepository)

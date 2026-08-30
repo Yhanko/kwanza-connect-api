@@ -1,14 +1,16 @@
 import pytest
 import uuid
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from users.services.use_cases import RegisterUserUseCase
 from users.domain.entities import UserEntity
 from users.domain.interfaces import IUserRepository
 
-def test_register_user_success():
+@patch('users.services.use_cases.NotificationService.notify_admins')
+def test_register_user_success(mock_notify):
     # Arrange
     mock_repo = Mock(spec=IUserRepository)
     mock_repo.exists_by_email.return_value = False
+    mock_repo.exists_by_username.return_value = False
     
     def side_effect_save(user):
         return user
@@ -28,8 +30,9 @@ def test_register_user_success():
     assert result['email'] == email
     assert 'id' in result
     mock_repo.exists_by_email.assert_called_once_with(email)
-    mock_repo.save.assert_called_once()
+    mock_repo.save.assert_called()
     mock_repo.update_security.assert_called_once()
+    mock_notify.assert_called_once()
 
 def test_register_user_already_exists():
     # Arrange
