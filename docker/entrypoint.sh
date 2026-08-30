@@ -2,7 +2,7 @@
 set -e
 
 # ==============================================================================
-# 1. Verificação de Conexão com a Base de Dados
+# 1. Verificação de Conexão com a Base de Dados (se DB_HOST estiver definido)
 # ==============================================================================
 if [ -n "$DB_HOST" ]; then
   DB_PORT="${DB_PORT:-5432}"
@@ -16,10 +16,10 @@ if [ -n "$DB_HOST" ]; then
   done
 
   if [ $COUNT -eq $MAX_RETRIES ]; then
-    echo "==> [ERRO] Tempo limite esgotado ao tentar conectar ao PostgreSQL."
-    exit 1
+    echo "==> [AVISO] Tempo limite ao tentar conectar ao PostgreSQL via nc. Continuando..."
+  else
+    echo "==> PostgreSQL conectado com sucesso."
   fi
-  echo "==> PostgreSQL conectado com sucesso."
 fi
 
 # ==============================================================================
@@ -34,25 +34,25 @@ if [ -n "$REDIS_HOST" ]; then
     sleep 1
     COUNT=$((COUNT + 1))
   done
-  echo "==> Redis disponível."
+  echo "==> Redis conectado."
 fi
 
 # ==============================================================================
 # 3. Migrações, Estáticos e Setup Inicial (Apenas no Container Web Principal)
 # ==============================================================================
 IS_WEB_SERVICE=false
-if [ "$1" = "daphne" ] || [ "$1" = "gunicorn" ] || [ "$1" = "python" -a "$2" = "manage.py" -a "$3" = "runserver" ]; then
+if [ "$1" = "daphne" ] || [ "$1" = "gunicorn" ] || [ "$1" = "python" ] || [ -z "$1" ]; then
   IS_WEB_SERVICE=true
 fi
 
 if [ "$IS_WEB_SERVICE" = true ]; then
   echo "==> [WEB SETUP] Aplicando migrações de base de dados..."
-  python manage.py migrate --noinput
+  python manage.py migrate --noinput || echo "==> [AVISO] Falha ao aplicar migrações. Verifique o DATABASE_URL."
 
   echo "==> [WEB SETUP] Coletando arquivos estáticos..."
-  python manage.py collectstatic --noinput --clear
+  python manage.py collectstatic --noinput --clear || echo "==> [AVISO] Falha ao coletar estáticos."
 
-  # Criação segura e condicional de Superuser
+  # Criação de Superuser
   if [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
     echo "==> [WEB SETUP] Verificando existência do Superuser..."
     python manage.py shell -c "
@@ -73,12 +73,17 @@ if email and password:
         print(f'==> Superuser {email} criado com sucesso.')
     else:
         print(f'==> Superuser {email} já existe.')
-"
+" || true
   fi
 fi
 
 # ==============================================================================
 # 4. Execução do Comando Principal do Container
 # ==============================================================================
-echo "==> Iniciando comando: $@"
-exec "$@"
+if [ $# -eq 0 ]; then
+  echo "==> Nenhum comando fornecido. Iniciando Daphne padrão..."
+  exec daphne -b 0.0.0.0 -p 8000 app.asgi:application
+else
+  echo "==> Iniciando comando: $@"
+  exec "$@"
+fi

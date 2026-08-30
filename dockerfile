@@ -8,15 +8,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Instala ferramentas necessárias para compilar pacotes C (psycopg2, argon2, pillow, cryptography)
+# Instala ferramentas necessárias para compilação C
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Instala dependências no diretório local do usuário (/root/.local)
+# Cria um virtualenv isolado em /opt/venv
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # ========================================================
 # 2. Runner Stage: Imagem de produção enxuta e segura
@@ -25,39 +29,39 @@ FROM python:3.12-slim AS runner
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/home/django/.local/bin:$PATH"
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Instala apenas as bibliotecas de runtime necessárias (sem compiladores)
+# Instala apenas as bibliotecas de runtime necessárias
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-# Criação de grupo e utilizador não-root (Segurança: Principle of Least Privilege)
+# Criação de grupo e utilizador não-root
 RUN groupadd -g 1000 django && \
     useradd -u 1000 -g django -d /home/django -m -s /bin/bash django
 
-# Copia as dependências Python compiladas no estágio builder
-COPY --from=builder /root/.local /home/django/.local
+# Copia o virtualenv completo com todas as dependências e binários (daphne, celery, etc)
+COPY --from=builder /opt/venv /opt/venv
 
-# Prepara diretórios para arquivos estáticos e media com permissões adequadas
+# Cria diretórios para arquivos estáticos e media com permissões
 RUN mkdir -p /app/staticfiles /app/media && \
-    chown -R django:django /app /home/django/.local
+    chown -R django:django /app /opt/venv
 
 # Copia o código da aplicação
 COPY --chown=django:django . .
 
-# Copia e configura o script de inicialização (Entrypoint)
+# Copia o script de entrypoint e converte quebras de linha Windows (CRLF para LF)
 COPY --chown=django:django docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && \
+    chmod +x /entrypoint.sh
 
 # Alterna para o utilizador sem privilégios
 USER django
 
-# Porta padrão de execução
 EXPOSE 8000
 
 # Verificação contínua de saúde do container
