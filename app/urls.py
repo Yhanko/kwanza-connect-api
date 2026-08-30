@@ -2,11 +2,16 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
+from rest_framework.permissions import AllowAny
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from rest_framework_simplejwt.views import TokenRefreshView
 from app.health import health_check
 
 urlpatterns = [
+    # ── Redirecionamento da Raiz para a Documentação ───────────────────
+    path('', RedirectView.as_view(url='/api/docs/', permanent=False), name='root_redirect'),
+
     # ── Health Check (Docker / Load Balancer) ───────────────────────────
     path('api/health/',         health_check,                  name='health_check'),
 
@@ -14,9 +19,35 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # ── OpenAPI / Documentação ─────────────────────────────────────────
-    path('api/schema/',         SpectacularAPIView.as_view(),  name='schema'),
-    path('api/docs/',           SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/',          SpectacularRedocView.as_view(url_name='schema'),   name='redoc'),
+    path(
+        'api/schema/',
+        SpectacularAPIView.as_view(
+            permission_classes=[AllowAny],
+            throttle_classes=[],
+            authentication_classes=[],
+        ),
+        name='schema'
+    ),
+    path(
+        'api/docs/',
+        SpectacularSwaggerView.as_view(
+            url_name='schema',
+            permission_classes=[AllowAny],
+            throttle_classes=[],
+            authentication_classes=[],
+        ),
+        name='swagger-ui'
+    ),
+    path(
+        'api/redoc/',
+        SpectacularRedocView.as_view(
+            url_name='schema',
+            permission_classes=[AllowAny],
+            throttle_classes=[],
+            authentication_classes=[],
+        ),
+        name='redoc'
+    ),
 
     # ── JWT (RENOVAÇÃO DE TOKENS) ───────────────────────────────────────
     # Endpoint para renovação de acesso: O cliente envia um 'refresh_token' válido e recebe um novo 'access_token' (e um novo refresh token rodado).
