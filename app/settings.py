@@ -22,12 +22,16 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'same-origin'
 
+# Suporte a Proxy Reverso (Traefik / Nginx / Dokploy)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
 # Configuração de Sessão e CSRF Seguros (HTTPS em produção):
-# Força cookies apenas via HTTPS, redirecionamento SSL e preloading HSTS para prevenir ataques MitM.
 if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -67,11 +71,11 @@ INSTALLED_APPS = [
 ]
 
 # ─────────────────────────────────────────────
-#  Middleware
+#  Middleware (CorsMiddleware DEVE ser o primeiro para interceptar OPTIONS preflight)
 # ─────────────────────────────────────────────
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -87,19 +91,21 @@ CORS_ALLOWED_ORIGINS = [
     origin.strip().split('#')[0].strip()
     for origin in config(
         'CORS_ALLOWED_ORIGINS',
-        default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
+        default='http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,https://kwanza-connect-frontend.vercel.app'
     ).split(',')
     if origin.strip().split('#')[0].strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
 
 # Cabeçalhos personalizados permitidos
-from corsheaders.defaults import default_headers
+from corsheaders.defaults import default_headers, default_methods
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-api-key',
     'x-request-id',
     'x-content-type-options',
 ]
+CORS_ALLOW_METHODS = list(default_methods) + ['OPTIONS']
+CORS_PREFLIGHT_MAX_AGE = 86400
 
 # ─────────────────────────────────────────────
 #  URLs & Templates
