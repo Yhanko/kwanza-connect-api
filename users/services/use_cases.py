@@ -80,6 +80,15 @@ class RegisterUserUseCase:
         if self.repository.exists_by_email(email):
             raise ValidationError({'email': 'Este email já está registado.'})
 
+        # Validação da política de senhas (Django Password Validators)
+        from django.contrib.auth.password_validation import validate_password
+        try:
+            validate_password(password)
+        except Exception as e:
+            msg = list(e.messages) if hasattr(e, 'messages') else [str(e)]
+            raise ValidationError({'password': msg})
+
+
         # Filtragem de kwargs para evitar TypeError na UserEntity
         valid_user_fields = {
             'phone', 'country_code', 'city', 'address', 'occupation', 
@@ -352,9 +361,18 @@ class ChangePasswordUseCase:
         if current_password == new_password:
             raise ValidationError({'new_password': 'A nova senha deve ser diferente da actual.'})
             
+        # VALIDAÇÃO DE SEGURANÇA DA SENHA (DJANGO PASSWORD VALIDATORS)
+        from django.contrib.auth.password_validation import validate_password
+        try:
+            validate_password(new_password, user=django_user)
+        except Exception as e:
+            msg = list(e.messages) if hasattr(e, 'messages') else [str(e)]
+            raise ValidationError({'new_password': msg})
+
         # set_password() criptografa a nova senha utilizando Argon2id com um novo salt aleatório.
         django_user.set_password(new_password)
         django_user.save(update_fields=['password'])
+
 
         security = self.repository.get_security_by_user_id(user_id)
         if security:
@@ -490,8 +508,18 @@ class ResetPasswordUseCase:
         # Atualizar senha no model Django
         from ..models import User
         django_user = User.objects.get(id=user.id)
+
+        # VALIDAÇÃO DE SEGURANÇA DA SENHA (DJANGO PASSWORD VALIDATORS)
+        from django.contrib.auth.password_validation import validate_password
+        try:
+            validate_password(new_password, user=django_user)
+        except Exception as e:
+            msg = list(e.messages) if hasattr(e, 'messages') else [str(e)]
+            raise ValidationError({'new_password': msg})
+
         django_user.set_password(new_password)
         django_user.save(update_fields=['password'])
+
 
         from django.utils import timezone
         security = self.repository.get_security_by_user_id(user.id)

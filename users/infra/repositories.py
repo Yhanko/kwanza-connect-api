@@ -176,7 +176,13 @@ class DjangoUserRepository(IUserRepository):
             # Gera o hash da senha em texto limpo utilizando o hasher padrão configurado (Argon2id).
             # Cria um salt aleatório por utilizador e aplica derivação de chave de memória antes da persistência na BD.
             if user_entity.password and not user_entity.password.startswith(('pbkdf2_', 'argon2$', 'bcrypt$')):
+                from django.contrib.auth.password_validation import validate_password
+                try:
+                    validate_password(user_entity.password, user=django_user)
+                except Exception:
+                    pass  # Validação primária ocorre no UseCase
                 django_user.set_password(user_entity.password)
+
 
             # Persistência de arquivo (Upload para Cloudinary se for um novo arquivo)
             if user_entity.avatar and not isinstance(user_entity.avatar, str):

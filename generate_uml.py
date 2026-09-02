@@ -1,8 +1,6 @@
-import urllib.request
+import requests
 import json
-import ssl
-
-context = ssl._create_unverified_context()
+import os
 
 uml_code = """@startuml
 left to right direction
@@ -59,22 +57,21 @@ data = {
 }
 
 try:
-    payload = json.dumps(data).encode('utf-8')
-    req = urllib.request.Request(
+    print("Atualizando imagem do diagrama UML...")
+    resp = requests.post(
         "https://kroki.io/",
-        data=payload,
+        json=data,
         headers={
-            'Content-Type': 'application/json',
             'Accept': 'image/png',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+            'User-Agent': 'KwanzaConnect-UML-Generator/1.0'
+        },
+        timeout=30
     )
-    
-    print("Atualizando imagem...")
-    with urllib.request.urlopen(req, context=context) as resp:
-        with open(r"c:\pfc\yhanko\kwanzaConnect-project\kwanzaConnect-API\diagrama_uso.png", "wb") as f:
-            f.write(resp.read())
-            
-    print("Imagem atualizada com sucesso sem o actor Sistema!")
+    resp.raise_for_status()
+    output_path = os.path.join(os.path.dirname(__file__), "diagrama_uso.png")
+    with open(output_path, "wb") as f:
+        f.write(resp.content)
+    print("Imagem atualizada com sucesso!")
 except Exception as e:
     print("Erro durante a execucao:", e)
+

@@ -1,7 +1,7 @@
 import secrets
 import hashlib
 from django.contrib import admin
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 from .models import APIKey
 
 
@@ -18,7 +18,8 @@ class APIKeyAdmin(admin.ModelAdmin):
             obj, raw_key = APIKey.generate(name=obj.name, expires_at=obj.expires_at)
             self.message_user(
                 request, 
-                mark_safe(f"<h3>⚠️ CHAVE GERADA (GUARTA ESTA CHAVE AGORA):</h3><br><b>{raw_key}</b><br><br>Esta chave nunca mais será exibida.")
+                format_html("<h3>⚠️ CHAVE GERADA (GUARDA ESTA CHAVE AGORA):</h3><br><b>{}</b><br><br>Esta chave nunca mais será exibida.", raw_key)
             )
         else:
             super().save_model(request, obj, form, change)
+
