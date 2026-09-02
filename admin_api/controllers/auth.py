@@ -13,6 +13,7 @@ ADMIN_SECRET_KEY = getattr(settings, 'ADMIN_SECRET_KEY', 'KWANZA_ADMIN_SECURE_20
 
 class AdminLoginView(APIView):
     permission_classes = [] # Public route
+    throttle_scope = 'admin_auth'
 
     @extend_schema(tags=['Admin - Auth'], request=LoginSerializer)
     def post(self, request):
@@ -40,6 +41,7 @@ class AdminLoginView(APIView):
 
 class AdminRegisterView(APIView):
     permission_classes = [] # Public route
+    throttle_scope = 'admin_auth'
 
     @extend_schema(tags=['Admin - Auth'])
     def post(self, request):

@@ -61,3 +61,25 @@ def test_audit_log_helper_integration(mock_execute):
     assert kwargs['ip_address'] == '192.168.1.1'
     assert kwargs['user_agent'] == 'Mozilla/5.0'
     assert kwargs['user_id'] == mock_request.user.id
+
+@patch('audit.tasks.AuditLog.objects.filter')
+def test_cleanup_old_audit_logs_retention_6_years(mock_filter):
+    """Testa se a tarefa periódica de limpeza de logs filtra registos anteriores a 6 anos."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from audit.tasks import cleanup_old_audit_logs
+
+    mock_queryset = MagicMock()
+    mock_queryset.delete.return_value = (5, {})
+    mock_filter.return_value = mock_queryset
+
+    before_call = timezone.now() - timedelta(days=6 * 365)
+    result = cleanup_old_audit_logs()
+    after_call = timezone.now() - timedelta(days=6 * 365)
+
+    assert result == "Apagados 5 logs."
+    assert mock_filter.called
+    called_kwargs = mock_filter.call_args[1]
+    assert 'timestamp__lt' in called_kwargs
+    cutoff_arg = called_kwargs['timestamp__lt']
+    assert before_call <= cutoff_arg <= after_call

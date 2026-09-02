@@ -184,16 +184,33 @@ REST_FRAMEWORK = {
     ),
     # PROTEÇÃO DE RATE LIMITING (THROTTLING):
     # Controla a frequência de requisições por cliente para evitar ataques DoS, força bruta e abusos.
-    # - AnonRateThrottle: Limita visitantes não autenticados pelo endereço IP (10 requisições/minuto).
-    # - UserRateThrottle: Limita utilizadores autenticados pelo ID do utilizador no JWT (100 requisições/minuto).
+    # - AnonRateThrottle: Limita visitantes não autenticados pelo endereço IP.
+    # - UserRateThrottle: Limita utilizadores autenticados pelo ID do utilizador no JWT.
+    # - ScopedRateThrottle: Limita endpoints específicos conforme o 'throttle_scope' configurado na View.
     # Requisições que excedam estes limites recebem HTTP 429 (Too Many Requests). O contador usa cache em Redis.
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '10/minute',
-        'user': '100/minute',
+        # Limites globais padrão
+        'anon': '30/minute',
+        'user': '120/minute',
+
+        # Limites específicos por escopo (Segurança & Requisitos BNA)
+        'auth_login': '5/minute',             # Previne força bruta / credential stuffing no login
+        'auth_register': '5/minute',          # Previne criação em massa de contas falsas
+        'auth_password_reset': '3/minute',    # Previne spam de redefinição de senhas / emails
+        'auth_verify_email': '10/minute',     # Validação de token de email
+        'admin_auth': '5/minute',             # Login e registo de administração com limite estrito
+        'token_refresh': '30/minute',         # Renovação de access tokens JWT
+        'kyc_upload': '5/minute',             # Upload de documentos pesados de identificação
+        'offers_create': '20/minute',         # Criação de ofertas no livro de ordens P2P
+        'offers_interest': '30/minute',       # Manifestação de interesse em ofertas
+        'transactions': '20/minute',          # Confirmação e avaliação de transações
+        'user_reports': '5/minute',           # Submissão de denúncias/moderação
+        'rates_public': '60/minute',          # Consulta e conversão pública de taxas de câmbio
     },
     'DEFAULT_PAGINATION_CLASS': 'app.pagination.StandardPagination',
     'PAGE_SIZE': 20,

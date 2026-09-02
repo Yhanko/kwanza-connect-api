@@ -35,6 +35,7 @@ class TransactionListView(APIView):
 
 class TransactionConfirmView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'transactions'
     serializer_class = TransactionCreateSerializer
 
     @extend_schema(request=TransactionCreateSerializer, tags=['Transações'])
@@ -78,6 +79,7 @@ class TransactionConfirmView(APIView):
 
 class TransactionReviewView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'transactions'
 
     @extend_schema(request=TransactionReviewSerializer, tags=['Transações'])
     def post(self, request, transaction_id: str):

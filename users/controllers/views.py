@@ -37,6 +37,7 @@ from app.audit_service import audit_log
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'auth_register'
 
     @extend_schema(request=RegisterSerializer, tags=['Autenticação'])
     def post(self, request):
@@ -79,6 +80,7 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'auth_login'
 
     @extend_schema(request=LoginSerializer, tags=['Autenticação'])
     def post(self, request):
@@ -152,6 +154,7 @@ class LogoutView(APIView):
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'auth_verify_email'
 
     @extend_schema(tags=['Autenticação'])
     def get(self, request, token: str):
@@ -172,6 +175,7 @@ class VerifyEmailView(APIView):
 
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'auth_password_reset'
 
     @extend_schema(request=ForgotPasswordSerializer, tags=['Autenticação'])
     def post(self, request):
@@ -191,6 +195,7 @@ class ForgotPasswordView(APIView):
 
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'auth_password_reset'
 
     @extend_schema(request=ResetPasswordSerializer, tags=['Autenticação'])
     def post(self, request):
@@ -259,6 +264,7 @@ class MeView(APIView):
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'auth_password_reset'
 
     @extend_schema(request=ChangePasswordSerializer, tags=['Perfil'])
     def post(self, request):
@@ -300,6 +306,7 @@ class PublicProfileView(APIView):
 
 class KYCSubmitView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'kyc_upload'
     parser_classes     = [MultiPartParser, FormParser]
 
     @extend_schema(request=IdentityDocumentSerializer, tags=['KYC'])
@@ -371,6 +378,7 @@ class UserLocationsView(APIView):
 
 class ReportUserView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'user_reports'
 
     @extend_schema(request=ReportCreateSerializer, tags=['Moderação'])
     def post(self, request):

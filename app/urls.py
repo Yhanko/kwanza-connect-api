@@ -8,6 +8,9 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 from rest_framework_simplejwt.views import TokenRefreshView
 from app.health import health_check
 
+class ThrottledTokenRefreshView(TokenRefreshView):
+    throttle_scope = 'token_refresh'
+
 urlpatterns = [
     # ── Redirecionamento da Raiz para a Documentação ───────────────────
     path('', RedirectView.as_view(url='/api/docs/', permanent=False), name='root_redirect'),
@@ -51,7 +54,7 @@ urlpatterns = [
 
     # ── JWT (RENOVAÇÃO DE TOKENS) ───────────────────────────────────────
     # Endpoint para renovação de acesso: O cliente envia um 'refresh_token' válido e recebe um novo 'access_token' (e um novo refresh token rodado).
-    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/token/refresh/', ThrottledTokenRefreshView.as_view(), name='token_refresh'),
 
     # ── Módulos ────────────────────────────────────────────────────────
     path('api/auth/',          include('users.routes.urls')),
