@@ -328,3 +328,65 @@ class Report(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+# ─────────────────────────────────────────────
+#  Consentimento de Privacidade & APD (Lei n.º 22/11)
+# ─────────────────────────────────────────────
+
+class DataPrivacyConsent(models.Model):
+    """
+    Registo auditável e imutável de consentimento do utilizador para tratamento de dados pessoais,
+    em conformidade com a Lei n.º 22/11 (Lei de Protecção de Dados Pessoais de Angola) e directrizes do BNA.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='privacy_consents', db_index=True)
+    terms_version = models.CharField(max_length=50, default='v1.2-sandbox-bna')
+    privacy_policy_version = models.CharField(max_length=50, default='v1.2-apd-lei2211')
+    terms_content_hash = models.CharField(max_length=64, help_text="Hash SHA-256 do conteúdo integral dos termos aceites")
+    
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    consented_at = models.DateTimeField(default=timezone.now, db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-consented_at']
+        verbose_name = 'Consentimento de Privacidade (APD)'
+        verbose_name_plural = 'Consentimentos de Privacidade (APD)'
+
+    def __str__(self):
+        return f"Consentimento {self.terms_version} - {self.user.email} [{self.consented_at.strftime('%Y-%m-%d %H:%M')}]"
+
+
+# ─────────────────────────────────────────────
+#  Histórico de Acessos & Detecção de Anomalias
+# ─────────────────────────────────────────────
+
+class UserLoginHistory(models.Model):
+    """
+    Registo de histórico de logins para detecção de anomalias de acesso,
+    viagens impossíveis (Impossible Travel) e dispositivos não autorizados.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history', db_index=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True, db_index=True)
+    user_agent = models.TextField(blank=True)
+    device_fingerprint = models.CharField(max_length=64, blank=True, db_index=True)
+    
+    country_code = models.CharField(max_length=5, default='AO')
+    city = models.CharField(max_length=100, blank=True)
+    is_anomalous = models.BooleanField(default=False, db_index=True)
+    anomaly_reasons = models.JSONField(default=list, blank=True)
+    
+    login_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-login_at']
+        verbose_name = 'Histórico de Login'
+        verbose_name_plural = 'Históricos de Login'
+
+    def __str__(self):
+        return f"Login {self.user.email} - IP: {self.ip_address} [{self.login_at.strftime('%Y-%m-%d %H:%M')}]"

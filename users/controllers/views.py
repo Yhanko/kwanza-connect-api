@@ -103,9 +103,20 @@ class LoginView(APIView):
             request=request
         )
         
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '127.0.0.1'))
+        if ip and ',' in ip:
+            ip = ip.split(',')[0].strip()
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
         try:
             audit_repo = DjangoAuditRepository()
-            tokens = LoginUseCase(repo, audit_repo).execute(email=email, password=password)
+            tokens = LoginUseCase(repo, audit_repo).execute(
+                email=email,
+                password=password,
+                ip_address=ip,
+                user_agent=user_agent
+            )
+
             
             # Se for necessário 2FA, retorna o token temporário de pré-autenticação
             if tokens.get('two_factor_required'):
@@ -516,4 +527,53 @@ class TwoFactorVerifyLoginView(APIView):
         result['user'] = UserProfileSerializer(user_model).data
 
         return success_response(data=result, message='Autenticação de 2 fatores concluída com sucesso.')
+
+
+# ─────────────────────────────────────────────
+# 🛡️ Consentimento e Protecção de Dados (Lei n.º 22/11 - APD Angola)
+# ─────────────────────────────────────────────
+
+class UserPrivacyConsentView(APIView):
+    """
+    Gestão de Consentimento e Protecção de Dados Pessoais em conformidade com a Lei n.º 22/11 (APD Angola).
+    Permite consultar o status do consentimento e registar aceitação dos Termos e Política de Privacidade.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['Privacidade & APD'],
+        summary='Consultar status do consentimento de privacidade (Lei n.º 22/11)',
+    )
+    def get(self, request):
+        from ..services.consent_service import DataPrivacyConsentService
+        status_data = DataPrivacyConsentService.get_user_consent_status(request.user)
+        return success_response(data=status_data, message='Status de consentimento obtido.')
+
+    @extend_schema(
+        tags=['Privacidade & APD'],
+        summary='Registar ou renovar consentimento de privacidade e termos da Sandbox BNA',
+    )
+    def post(self, request):
+        from ..services.consent_service import DataPrivacyConsentService
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '127.0.0.1'))
+        if ip and ',' in ip:
+            ip = ip.split(',')[0].strip()
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+        terms_version = request.data.get('terms_version')
+        privacy_version = request.data.get('privacy_policy_version')
+        terms_content = request.data.get('terms_content')
+
+        consent = DataPrivacyConsentService.record_consent(
+            user=request.user,
+            ip_address=ip,
+            user_agent=user_agent,
+            terms_version=terms_version,
+            privacy_policy_version=privacy_version,
+            terms_content=terms_content
+        )
+
+        status_data = DataPrivacyConsentService.get_user_consent_status(request.user)
+        return success_response(data=status_data, message='Consentimento de privacidade registado com sucesso conforme a Lei n.º 22/11.')
+
 

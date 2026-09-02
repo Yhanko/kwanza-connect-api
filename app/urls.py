@@ -58,7 +58,9 @@ urlpatterns = [
 
     # ── Módulos ────────────────────────────────────────────────────────
     path('api/auth/',          include('users.routes.urls')),
+    path('api/users/',         include('users.routes.urls')),
     path('api/offers/',        include('offers.routes.urls')),
+
     path('api/chat/',          include('chat.routes.urls')),
     path('api/notifications/', include('notifications.routes.urls')),
     path('api/rates/',         include('rates.routes.urls')),

@@ -12,7 +12,11 @@ from .controllers.compliance_views import (
     ValidateAngolanIBANView,
     ExportUIFSARReportView,
     AuditChainIntegrityView,
+    CyberIncidentListView,
+    ExportCyberIncidentBNAView,
+    NotifyCyberIncidentBNAView,
 )
+
 
 urlpatterns = [
     # Consultar limites do próprio utilizador (Tier KYC, saldo disponível, consumido)
@@ -44,7 +48,13 @@ urlpatterns = [
     # Gestão de Vulnerabilidades, SAST e OWASP Top 10 API Security
     path('compliance/vulnerabilities/', VulnerabilityScanView.as_view(), name='compliance-vulnerabilities-status'),
     path('compliance/vulnerabilities/scan/', TriggerVulnerabilityScanView.as_view(), name='compliance-vulnerabilities-trigger-scan'),
+
+    # Gestão de Incidentes de Cibersegurança e Notificação ao BNA (Prazo 24h)
+    path('compliance/incidents/', CyberIncidentListView.as_view(), name='compliance-incidents-list'),
+    path('compliance/incidents/<uuid:incident_id>/export-bna/', ExportCyberIncidentBNAView.as_view(), name='compliance-incidents-export-bna'),
+    path('compliance/incidents/<uuid:incident_id>/notify-bna/', NotifyCyberIncidentBNAView.as_view(), name='compliance-incidents-notify-bna'),
 ]
+
 
 
 
