@@ -5,7 +5,7 @@ KwanzaConnect API — Conformidade com a Lei n.º 05/20 Art. 19, 20 e 38 (PCBC/F
 
 import json
 import hashlib
-from xml.etree.ElementTree import Element, SubElement, tostring
+import html
 import defusedxml.ElementTree as defused_ET
 from datetime import datetime
 from django.utils import timezone
@@ -107,23 +107,29 @@ class UIFExportService:
         """Exporta o relatório formal no formato XML padronizado de comunicação à UIF."""
         payload = cls.generate_uif_payload(sar)
 
-        root = Element("UIF_SuspiciousActivityReport", version="1.0", country="AO")
+        def dict_to_xml_fragment(key: str, val: Any) -> str:
+            if isinstance(val, dict):
+                inner = "".join(dict_to_xml_fragment(k, v) for k, v in val.items())
+                return f"<{key}>{inner}</{key}>"
+            elif isinstance(val, list):
+                items = []
+                for item in val:
+                    if isinstance(item, dict):
+                        inner_dict = "".join(dict_to_xml_fragment(k, v) for k, v in item.items())
+                        items.append(f"<item>{inner_dict}</item>")
+                    else:
+                        esc = html.escape(str(item)) if item is not None else ""
+                        items.append(f"<item>{esc}</item>")
+                return f"<{key}>{''.join(items)}</{key}>"
+            else:
+                esc = html.escape(str(val)) if val is not None else ""
+                return f"<{key}>{esc}</{key}>"
 
-        def dict_to_xml(parent, data):
-            for key, val in data.items():
-                child = SubElement(parent, key)
-                if isinstance(val, dict):
-                    dict_to_xml(child, val)
-                elif isinstance(val, list):
-                    for item in val:
-                        item_elem = SubElement(child, "item")
-                        if isinstance(item, dict):
-                            dict_to_xml(item_elem, item)
-                        else:
-                            item_elem.text = str(item)
-                else:
-                    child.text = str(val) if val is not None else ""
+        inner_xml = "".join(dict_to_xml_fragment(k, v) for k, v in payload.items())
+        raw_xml = f'<UIF_SuspiciousActivityReport version="1.0" country="AO">{inner_xml}</UIF_SuspiciousActivityReport>'
+        
+        # Validação e serialização segura contra ataques de XML parsing com defusedxml
+        elem = defused_ET.fromstring(raw_xml.encode("utf-8"))
+        return defused_ET.tostring(elem, encoding="utf-8", method="xml").decode("utf-8")
 
-        dict_to_xml(root, payload)
-        return tostring(root, encoding="utf-8", method="xml").decode("utf-8")
 
