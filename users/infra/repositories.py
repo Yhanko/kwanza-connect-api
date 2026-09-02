@@ -207,9 +207,8 @@ class DjangoUserRepository(IUserRepository):
 
     def update_security(self, security: UserSecurityEntity) -> None:
         DjangoUserSecurity.objects.update_or_create(
-            id=security.id,
+            user_id=security.user_id,
             defaults={
-                'user_id': security.user_id,
                 'email_token': security.email_token,
                 'email_verified': security.email_verified,
                 'email_verified_at': security.email_verified_at,
@@ -227,13 +226,13 @@ class DjangoUserRepository(IUserRepository):
             }
         )
 
-
     def get_security_by_user_id(self, user_id: uuid.UUID) -> Optional[UserSecurityEntity]:
         try:
-            django_security = DjangoUserSecurity.objects.get(user_id=user_id)
+            django_security, _ = DjangoUserSecurity.objects.get_or_create(user_id=user_id)
             return self._security_to_entity(django_security)
-        except DjangoUserSecurity.DoesNotExist:
+        except Exception:
             return None
+
 
     def get_security_by_email_token(self, token: str) -> Optional[UserSecurityEntity]:
         try:

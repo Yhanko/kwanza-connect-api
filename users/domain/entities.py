@@ -48,6 +48,33 @@ class UserSecurityEntity:
             return True
         return False
 
+    def generate_backup_codes(self, count: int = 8) -> List[str]:
+        import secrets
+        import hashlib
+        plain_codes = []
+        hashed_codes = []
+        for _ in range(count):
+            part1 = secrets.token_hex(2).upper()
+            part2 = secrets.token_hex(2).upper()
+            c = f"{part1}-{part2}"
+            plain_codes.append(c)
+            hashed_codes.append(hashlib.sha256(c.encode()).hexdigest())
+
+        self.two_factor_backup_codes = hashed_codes
+        return plain_codes
+
+    def verify_and_consume_backup_code(self, raw_code: str) -> bool:
+        import hashlib
+        if not raw_code:
+            return False
+        normalized_code = raw_code.strip().upper()
+        code_hash = hashlib.sha256(normalized_code.encode()).hexdigest()
+        if self.two_factor_backup_codes and code_hash in self.two_factor_backup_codes:
+            self.two_factor_backup_codes = [c for c in self.two_factor_backup_codes if c != code_hash]
+            return True
+        return False
+
+
 @dataclass
 class UserEntity:
     id: uuid.UUID
