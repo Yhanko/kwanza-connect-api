@@ -13,9 +13,13 @@ class UserManager(BaseUserManager):
             raise ValueError('O email é obrigatório.')
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
+        if password:
+            from django.contrib.auth.password_validation import validate_password
+            validate_password(password, user=user)
         user.set_password(password)
         user.save(using=self._db)
         return user
+
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)

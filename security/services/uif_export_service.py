@@ -5,10 +5,12 @@ KwanzaConnect API — Conformidade com a Lei n.º 05/20 Art. 19, 20 e 38 (PCBC/F
 
 import json
 import hashlib
-import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement, tostring
+import defusedxml.ElementTree as defused_ET
 from datetime import datetime
 from django.utils import timezone
 from typing import Dict, Any
+
 
 from ..models import SuspiciousActivityReport
 from security.masking import mask_doc_number, mask_email, mask_phone
@@ -105,16 +107,16 @@ class UIFExportService:
         """Exporta o relatório formal no formato XML padronizado de comunicação à UIF."""
         payload = cls.generate_uif_payload(sar)
 
-        root = ET.Element("UIF_SuspiciousActivityReport", version="1.0", country="AO")
+        root = Element("UIF_SuspiciousActivityReport", version="1.0", country="AO")
 
         def dict_to_xml(parent, data):
             for key, val in data.items():
-                child = ET.SubElement(parent, key)
+                child = SubElement(parent, key)
                 if isinstance(val, dict):
                     dict_to_xml(child, val)
                 elif isinstance(val, list):
                     for item in val:
-                        item_elem = ET.SubElement(child, "item")
+                        item_elem = SubElement(child, "item")
                         if isinstance(item, dict):
                             dict_to_xml(item_elem, item)
                         else:
@@ -123,4 +125,5 @@ class UIFExportService:
                     child.text = str(val) if val is not None else ""
 
         dict_to_xml(root, payload)
-        return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
+        return tostring(root, encoding="utf-8", method="xml").decode("utf-8")
+

@@ -20,8 +20,9 @@ def test_register_user_success(mock_notify):
     
     use_case = RegisterUserUseCase(repository=mock_repo, audit_repo=mock_audit_repo)
     email = "test@example.com"
-    password = "password123"
+    password = "KwanzaPass@2026Secure"
     full_name = "Test User"
+
     
     # Act
     result = use_case.execute(email=email, password=password, full_name=full_name)
