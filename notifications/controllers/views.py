@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from app.exceptions import success_response
 from app.pagination import StandardPagination
+from ..models import Notification as DjangoNotification
 from ..infra.serializers import NotificationSerializer, NotificationPreferenceSerializer
 from ..services.use_cases import (
     GetUserNotificationsUseCase, MarkNotificationReadUseCase, 
