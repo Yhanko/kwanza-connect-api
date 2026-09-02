@@ -39,17 +39,18 @@ def test_register_audit_log_use_case_logic():
 
 @patch('app.audit_service._audit_use_case.execute')
 def test_audit_log_helper_integration(mock_execute):
-    """Testa o helper global mockando o use case interno."""
+    """Testa o helper global mockando o use case interno e extraindo dados ricos."""
     mock_request = MagicMock()
     mock_request.META = {
-        'REMOTE_ADDR': '192.168.1.1',
-        'HTTP_USER_AGENT': 'Mozilla/5.0'
+        'HTTP_X_FORWARDED_FOR': '197.234.10.5, 10.0.0.1',
+        'HTTP_USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0)'
     }
     mock_request.user.is_authenticated = True
     mock_request.user.id = uuid.uuid4()
+    mock_request.user.email = 'cliente@kwanzaconnect.ao'
     
     audit_log(
-        action='LOGIN_TEST',
+        action='LOGIN_SUCCESS',
         resource='auth',
         request=mock_request
     )
@@ -57,10 +58,39 @@ def test_audit_log_helper_integration(mock_execute):
     # Verifica se o use case foi chamado com os dados extraídos do request
     mock_execute.assert_called_once()
     kwargs = mock_execute.call_args[1]
-    assert kwargs['action'] == 'LOGIN_TEST'
-    assert kwargs['ip_address'] == '192.168.1.1'
-    assert kwargs['user_agent'] == 'Mozilla/5.0'
+    assert kwargs['action'] == 'LOGIN_SUCCESS'
+    assert kwargs['ip_address'] == '197.234.10.5'
+    assert kwargs['user_agent'] == 'Mozilla/5.0 (Windows NT 10.0)'
     assert kwargs['user_id'] == mock_request.user.id
+    assert kwargs['actor_email'] == 'cliente@kwanzaconnect.ao'
+    assert kwargs['status'] == 'SUCCESS'
+    assert kwargs['severity'] == 'INFO'
+
+def test_audit_log_sanitization_and_masking():
+    """Testa o mascaramento rigoroso de senhas, tokens e chaves de API nos metadados."""
+    mock_repo = MagicMock()
+    use_case = RegisterAuditLogUseCase(mock_repo)
+    
+    raw_metadata = {
+        'email': 'teste@kwanza.ao',
+        'password': 'MinhaSenhaUltraSecreta123!',
+        'token': 'jwt_access_token_xyz',
+        'api_key': 'kwanza_live_key_999'
+    }
+    
+    use_case.execute(
+        action='REGISTER_ATTEMPT',
+        resource='users',
+        metadata=raw_metadata
+    )
+    
+    assert mock_repo.save.called
+    saved_log = mock_repo.save.call_args[0][0]
+    assert saved_log.metadata['email'] == 'teste@kwanza.ao'
+    assert saved_log.metadata['password'] == '********'
+    assert saved_log.metadata['token'] == '********'
+    assert saved_log.metadata['api_key'] == '********'
+
 
 @patch('audit.tasks.AuditLog.objects.filter')
 def test_cleanup_old_audit_logs_retention_6_years(mock_filter):
