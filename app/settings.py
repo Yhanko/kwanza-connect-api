@@ -283,24 +283,42 @@ CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE      = 'Africa/Luanda'
 CELERY_TASK_SERIALIZER   = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_ACCEPT_CONTENT    = ['json']
-CELERY_IMPORTS           = ['rates.infra.tasks']
+CELERY_IMPORTS           = [
+    'rates.infra.tasks',
+    'offers.tasks',
+    'audit.tasks',
+    'security.tasks',
+]
 
 from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
+    # ── 1. Cotações de Câmbio em Tempo Real (A cada 5 minutos) ────────────────
     'fetch-exchange-rates': {
         'task':     'rates.infra.tasks.fetch_rates',
         'schedule': crontab(minute='*/5'),
     },
+    # ── 2. Expiração de Ofertas P2P Inativas (A cada hora cheia) ──────────────
     'expire-old-offers': {
         'task':     'offers.tasks.expire_old_offers',
         'schedule': crontab(minute=0),
     },
+    # ── 3. Rotação & Arquivamento de Logs de Auditoria (Diariamente às 02:00) ───
     'cleanup-old-audit-logs': {
         'task':     'audit.tasks.cleanup_old_audit_logs',
         'schedule': crontab(hour=2, minute=0),
     },
+    # ── 4. BNA BCP/DRP: Backup Periódico Criptografado (RPO <= 15 Minutos) ─────
+    'scheduled-database-backup-rpo': {
+        'task':     'security.tasks.run_scheduled_backup_task',
+        'schedule': crontab(minute='*/15'),  # Executa de 15 em 15 minutos 24/7 sem intervenção humana
+    },
+    # ── 5. BNA BCP/DRP: Simulação Automatizada de Disaster Recovery (DRP Drill) 
+    'scheduled-disaster-recovery-drill': {
+        'task':     'security.tasks.run_disaster_recovery_drill_task',
+        'schedule': crontab(hour=3, minute=30),  # Executa diariamente às 03:30 para validação de RTO
+    },
 }
+
 
 # ─────────────────────────────────────────────
 #  Email
