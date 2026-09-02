@@ -7,7 +7,9 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
+
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from ..models import SuspiciousActivityReport, UserRiskProfile
@@ -401,6 +403,93 @@ class TriggerVulnerabilityScanView(APIView):
                 'status': 'error',
                 'message': f'Falha ao executar varredura de vulnerabilidades: {exc}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ValidateAngolanIBANView(APIView):
+    """
+    Valida a integridade, formato (AO06) e código bancário de um IBAN angolano (ISO 7064 MOD 97-10).
+    Acesso liberado para utilizadores autenticados e administradores para validação de contas/métodos de pagamento.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['Compliance / BNA'],
+        summary='Validar IBAN angolano (AO06 com Modulo 97 e catálogo BNA/EMIS)',
+    )
+    def post(self, request):
+        from ..services.angola_banking import AngolaBankingValidator
+        raw_iban = request.data.get('iban', '')
+        is_valid, bank_data, error_msg = AngolaBankingValidator.validate_iban(raw_iban)
+
+        if not is_valid:
+            return Response({
+                'status': 'error',
+                'is_valid': False,
+                'message': error_msg or 'IBAN angolano inválido.',
+                'data': bank_data
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'status': 'success',
+            'is_valid': True,
+            'message': f"IBAN válido emitido por: {bank_data['bank_name']}",
+            'data': bank_data
+        }, status=status.HTTP_200_OK)
+
+
+class ExportUIFSARReportView(APIView):
+    """
+    Exporta formalmente a Declaração de Operação Suspeita (SAR / DOS) no formato padrão da UIF Angola
+    (Lei n.º 05/20 Art. 19, 20 e 38).
+    """
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        tags=['Compliance / BNA'],
+        summary='Exportar comunicação oficial de operação suspeita para a UIF Angola (JSON / XML)',
+    )
+    def get(self, request, report_id, *args, **kwargs):
+        from ..models import SuspiciousActivityReport
+        from ..services.uif_export_service import UIFExportService
+        from django.http import HttpResponse
+
+        sar = get_object_or_404(SuspiciousActivityReport, id=report_id)
+        fmt = (request.query_params.get('export_type') or request.query_params.get('export_format') or request.query_params.get('format', 'json')).lower()
+
+        if fmt == 'xml':
+            xml_content = UIFExportService.export_as_xml(sar)
+            response = HttpResponse(xml_content, content_type='application/xml; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="uif_sar_report_{sar.id}.xml"'
+            return response
+
+        # Padrão JSON estruturado
+        payload = UIFExportService.generate_uif_payload(sar)
+        return Response({
+            'status': 'success',
+            'data': payload
+        }, status=status.HTTP_200_OK)
+
+
+
+class AuditChainIntegrityView(APIView):
+    """
+    Verifica a imutabilidade criptográfica da trilha de auditoria (WORM / Hash-Chaining).
+    Em conformidade com o Artigo 38 da Lei n.º 05/20 e Diretrizes de Auditoria de TI do BNA.
+    """
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        tags=['Compliance / BNA'],
+        summary='Verificar integridade criptográfica e imutabilidade da trilha de auditoria',
+    )
+    def get(self, request):
+        from audit.services.chain_verifier import AuditChainVerifier
+        report = AuditChainVerifier.verify_audit_trail_integrity()
+        return Response({
+            'status': 'success',
+            'data': report
+        }, status=status.HTTP_200_OK)
+
 
 
 

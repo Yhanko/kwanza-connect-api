@@ -251,6 +251,53 @@ class AMLEngine:
         tier = cls.get_user_kyc_tier(user)
         tier_cfg = TIER_LIMITS.get(tier, TIER_LIMITS['TIER_0_UNVERIFIED'])
 
+        # ── REGRA 0: Triagem de Listas de Sanções e PEPs (Lei n.º 05/20 Art. 19 e 20) ───
+        if profile.is_sanctioned:
+            result.is_blocked = True
+            result.block_reason = "Operação bloqueada preventivamente em cumprimento à Lei n.º 05/20 (Lista Restritiva / Sanções)."
+            result.rules_triggered.append('SANCTION_MATCH')
+            result.risk_score = 100
+
+            sar = SuspiciousActivityReport.objects.create(
+                user=user,
+                related_offer_id=offer_id,
+                related_transaction_id=transaction_id,
+                rule_code='SANCTION_MATCH',
+                severity='CRITICAL',
+                risk_score=100,
+                amount_aoa=amount_aoa,
+                status='UNDER_INVESTIGATION',
+                details={
+                    'reason': 'Utilizador listado em lista restritiva ou de sanções internacionais/nacionais.',
+                    'legal_basis': 'Lei n.º 05/20 Art. 20 (Medidas Restritivas Obrigatórias)',
+                    'amount_aoa': str(amount_aoa),
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+            result.reports_created.append(sar)
+            return result
+
+        if profile.is_pep:
+            result.rules_triggered.append('PEP_ENHANCED_DUE_DILIGENCE')
+            result.risk_score = max(result.risk_score, 60)
+            sar = SuspiciousActivityReport.objects.create(
+                user=user,
+                related_offer_id=offer_id,
+                related_transaction_id=transaction_id,
+                rule_code='PEP_ENHANCED_DUE_DILIGENCE',
+                severity='HIGH',
+                risk_score=60,
+                amount_aoa=amount_aoa,
+                status='PENDING_REVIEW',
+                details={
+                    'reason': 'Operação envolvendo Pessoa Exposta Politicamente (PEP) sujeita a Diligência Reforçada (EDD).',
+                    'legal_basis': 'Lei n.º 05/20 Art. 19 (Pessoas Expostas Politicamente)',
+                    'amount_aoa': str(amount_aoa),
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+            result.reports_created.append(sar)
+
         # ── REGRA 1: Validação Estrita de Limite por Tier de KYC ─────────
         is_valid_tier, tier_msg, _ = cls.check_tier_limits(user, amount_aoa)
         if not is_valid_tier:
@@ -278,6 +325,7 @@ class AMLEngine:
             )
             result.reports_created.append(sar)
             return result
+
 
         # ── REGRA 2: Detecção de Fracionamento / Smurfing ──────────────────
         # Múltiplas transações logo abaixo do limite por operação (ex: >= 80% do limite máximo) nas últimas 24h
