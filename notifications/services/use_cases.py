@@ -26,7 +26,7 @@ class MarkNotificationReadUseCase:
     def execute(self, user_id: uuid.UUID, notification_id: Optional[uuid.UUID] = None) -> None:
         if notification_id:
             notif = self.repository.get_notification_by_id(notification_id)
-            if not notif or notif.recipient_id != user_id:
+            if not notif or str(notif.recipient_id) != str(user_id):
                 raise NotFound('Notificação não encontrada.')
             
             notif.is_read = True
@@ -36,11 +36,15 @@ class MarkNotificationReadUseCase:
             self.repository.mark_all_as_read(user_id)
             
         if self.ws_service:
-            self.ws_service.send_to_user(
-                user_id=str(user_id),
-                event_type="unread_count_update",
-                payload={"unread_count": self.repository.get_unread_count(user_id)}
-            )
+            try:
+                self.ws_service.send_to_user(
+                    user_id=str(user_id),
+                    event_type="unread_count_update",
+                    payload={"unread_count": self.repository.get_unread_count(user_id)}
+                )
+            except Exception:
+                pass
+
 
 class UpdateNotificationPreferencesUseCase:
     def __init__(self, repository: INotificationRepository):
