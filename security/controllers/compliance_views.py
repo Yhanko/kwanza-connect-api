@@ -357,3 +357,50 @@ class RunDRDrillView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class VulnerabilityScanView(APIView):
+    """
+    Endpoint para consulta do relatório de postura de segurança, matriz OWASP Top 10 API Security
+    e auditoria de dependências (SAST & SCA) em conformidade com o Sandbox BNA.
+    """
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        tags=['Compliance / BNA'],
+        summary='Consultar relatório de postura de segurança, vulnerabilidades e OWASP Top 10',
+    )
+    def get(self, request):
+        from ..services.vulnerability_scanner import VulnerabilityScannerService
+        report = VulnerabilityScannerService.get_security_posture_report()
+        return Response({
+            'status': 'success',
+            'data': report
+        }, status=status.HTTP_200_OK)
+
+
+class TriggerVulnerabilityScanView(APIView):
+    """
+    Dispara uma nova varredura de segurança em tempo real com registro de auditoria imutável.
+    """
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        tags=['Compliance / BNA'],
+        summary='Disparar varredura de vulnerabilidades e análise estática SAST sob demanda',
+    )
+    def post(self, request):
+        from ..services.vulnerability_scanner import VulnerabilityScannerService
+        try:
+            report = VulnerabilityScannerService.trigger_on_demand_scan(triggered_by=request.user)
+            return Response({
+                'status': 'success',
+                'message': f"Varredura SAST/OWASP concluída com sucesso. Score: {report['overall_score']}/100 ({report['security_rating']}).",
+                'data': report
+            }, status=status.HTTP_200_OK)
+        except Exception as exc:
+            return Response({
+                'status': 'error',
+                'message': f'Falha ao executar varredura de vulnerabilidades: {exc}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+

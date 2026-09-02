@@ -64,7 +64,7 @@ class RegisterUserUseCase:
                 suffix = "".join(nums)[-3:]
                 
         if not suffix:
-            suffix = str(random.randint(100, 999))
+            suffix = str(secrets.randbelow(900) + 100)
             
         username = f"{base}{suffix}"
         

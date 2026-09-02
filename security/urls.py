@@ -7,6 +7,8 @@ from .controllers.compliance_views import (
     BCPDRPStatusView,
     TriggerBackupView,
     RunDRDrillView,
+    VulnerabilityScanView,
+    TriggerVulnerabilityScanView,
 )
 
 urlpatterns = [
@@ -26,6 +28,11 @@ urlpatterns = [
     path('compliance/bcp-drp/', BCPDRPStatusView.as_view(), name='compliance-bcp-drp-status'),
     path('compliance/bcp-drp/trigger-backup/', TriggerBackupView.as_view(), name='compliance-bcp-drp-trigger-backup'),
     path('compliance/bcp-drp/run-drill/', RunDRDrillView.as_view(), name='compliance-bcp-drp-run-drill'),
+
+    # Gestão de Vulnerabilidades, SAST e OWASP Top 10 API Security
+    path('compliance/vulnerabilities/', VulnerabilityScanView.as_view(), name='compliance-vulnerabilities-status'),
+    path('compliance/vulnerabilities/scan/', TriggerVulnerabilityScanView.as_view(), name='compliance-vulnerabilities-trigger-scan'),
 ]
+
 
 

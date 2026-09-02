@@ -1,0 +1,34 @@
+# Bandit SAST Configuration File — KwanzaConnect API
+# Diretrizes do Sandbox Regulatório do BNA / LISPA & OWASP Top 10 API Security
+
+### Exclude paths that should not be scanned by Bandit (virtualenvs, migrations, tests)
+exclude_dirs:
+  - "/venv"
+  - "/.venv"
+  - "/*/migrations"
+  - "/*/tests"
+  - "/tests"
+  - "/tmp"
+
+### Tests to run (all standard security plugins enabled)
+skips:
+  - "B101" # assert_used (commonly used in pytest and domain contracts)
+
+### Profile definitions
+profiles:
+  bna_strict:
+    include:
+      - "B102" # exec_used
+      - "B104" # hardcoded_bind_all_interfaces
+      - "B105" # hardcoded_password_string
+      - "B106" # hardcoded_password_funcarg
+      - "B107" # hardcoded_password_default
+      - "B108" # hardcoded_tmp_directory
+      - "B110" # try_except_pass
+      - "B301" # pickle
+      - "B303" # md5/sha1 insecure hashes
+      - "B307" # eval
+      - "B324" # hashlib insecure
+      - "B601" # paramiko_calls
+      - "B602" # subprocess_popen_with_shell_equals_true
+      - "B608" # hardcoded_sql_expressions (SQL Injection)
