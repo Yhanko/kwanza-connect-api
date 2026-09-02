@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from security.encryption import EncryptedCharField, compute_blind_index
 from security.masking import mask_doc_number, mask_phone
@@ -14,9 +15,10 @@ class UserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         if password:
-            from django.contrib.auth.password_validation import validate_password
             validate_password(password, user=user)
-        user.set_password(password)
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
         user.save(using=self._db)
         return user
 
