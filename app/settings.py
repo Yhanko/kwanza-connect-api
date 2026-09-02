@@ -12,20 +12,34 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = [h.strip().split('#')[0].strip() for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',') if h.strip().split('#')[0].strip()]
 
+# Chave de Criptografia de Campos (AES-256 / Fernet)
+# Se não fornecida, deriva de forma segura e determinística via HKDF-SHA256 da SECRET_KEY
+FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default=None)
+
+# Algoritmos de Hash de Senha (Argon2id como padrão bancário / BNA)
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+]
+
 # Cabeçalhos HTTP de Segurança & Hardening:
-# - SECURE_BROWSER_XSS_FILTER: Ativa o filtro XSS do navegador.
-# - SECURE_CONTENT_TYPE_NOSNIFF: Evita vulnerabilidades de MIME-type sniffing.
-# - X_FRAME_OPTIONS = 'DENY': Previne ataques de Clickjacking ao proibir a inclusão em iframes.
-# - SECURE_REFERRER_POLICY: Restringe a exposição de dados sensíveis no cabeçalho Referer HTTP.
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
-SECURE_REFERRER_POLICY = 'same-origin'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # Suporte a Proxy Reverso (Traefik / Nginx / Dokploy)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
+
+# Configuração de Cookies Seguros (SameSite Strict):
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Strict'
+CSRF_COOKIE_SAMESITE = 'Strict'
 
 # Configuração de Sessão e CSRF Seguros (HTTPS em produção):
 if not DEBUG:
@@ -76,6 +90,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'security.middleware.FinancialSecurityHeadersMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

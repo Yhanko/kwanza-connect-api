@@ -52,6 +52,28 @@ class CreateOfferUseCase:
         rate_obj = self.repository.get_exchange_rate(give_currency.id, want_currency.id)
         rate_snapshot = rate_obj.rate if rate_obj else Decimal('0.0')
 
+        # Validação regulatória de Prevenção ao Branqueamento de Capitais (PCBC/FT & Tiers de KYC BNA)
+        try:
+            from security.services.aml_engine import AMLEngine
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user_obj = User.objects.filter(id=user_id).first()
+            if user_obj:
+                give_amount_dec = Decimal(str(data['give_amount']))
+                amount_aoa = AMLEngine.convert_to_aoa(give_amount_dec, give_code, rate_snapshot)
+                aml_result = AMLEngine.evaluate_transaction_risk(
+                    user=user_obj,
+                    amount_aoa=amount_aoa,
+                    currency_code=give_code,
+                    rate_snapshot=rate_snapshot
+                )
+                if aml_result.is_blocked:
+                    raise ValidationError({'detail': aml_result.block_reason})
+        except ValidationError:
+            raise
+        except Exception:
+            pass
+
         offer = OfferEntity(
             id=uuid.uuid4(),
             owner_id=user_id,

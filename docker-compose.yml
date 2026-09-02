@@ -1,37 +1,64 @@
+# ==============================================================================
+# KwanzaConnect API — Docker Compose de Produção Segura (Sandbox BNA)
+# Isolamento de Redes Multi-Camadas, Hardening de Containers e Least Privilege
+# ==============================================================================
+
 services:
+  # ── Base de Dados PostgreSQL (Rede Interna Isolada) ─────────────────────────
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file: .env
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_DB: ${DB_NAME:-kwanza_connect}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    networks:
+      - internal_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
 
+  # ── Cache & Message Broker Redis (Rede Interna Isolada) ─────────────────────
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    networks:
+      - internal_net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
 
+  # ── API Core ASGI (Daphne / Django) ─────────────────────────────────────────
   web:
     build:
       context: .
       dockerfile: dockerfile
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command: daphne -b 0.0.0.0 -p 8000 app.asgi:application
     volumes:
       - static_volume:/app/staticfiles
@@ -43,6 +70,9 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+    networks:
+      - internal_net
+      - dmz_net
     depends_on:
       db:
         condition: service_healthy
@@ -54,12 +84,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
 
+  # ── Celery Worker (Tarefas Assíncronas) ──────────────────────────────────────
   celery:
     build:
       context: .
       dockerfile: dockerfile
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command: celery -A app worker --loglevel=info --concurrency=4
     env_file: .env
     environment:
@@ -68,17 +106,27 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+    networks:
+      - internal_net
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
 
+  # ── Celery Beat (Agendador de Tarefas Periódicas) ────────────────────────────
   celery-beat:
     build:
       context: .
       dockerfile: dockerfile
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command: celery -A app beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file: .env
     environment:
@@ -87,26 +135,55 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+    networks:
+      - internal_net
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
+  # ── Nginx Reverse Proxy / Gateway WAF (Borda Pública) ───────────────────────
   nginx:
     image: nginx:alpine
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
+    networks:
+      - dmz_net
     depends_on:
       web:
         condition: service_healthy
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
 
+# ── Redes Segmentadas (Isolamento de Segurança BNA) ───────────────────────────
+networks:
+  # Rede Interna Isolada (Sem acesso público; PostgreSQL e Redis)
+  internal_net:
+    driver: bridge
+    internal: true
+
+  # Rede de Borda / DMZ (Nginx e Daphne Web)
+  dmz_net:
+    driver: bridge
+
+# ── Volumes Persistentes ──────────────────────────────────────────────────────
 volumes:
   postgres_data:
   redis_data:

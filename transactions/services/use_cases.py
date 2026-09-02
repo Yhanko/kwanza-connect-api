@@ -66,6 +66,27 @@ class ConfirmDealUseCase:
             if not buyer_id:
                 raise ValidationError('Não foi possível identificar o comprador nesta sala.')
 
+            # Validação de conformidade PCBC/FT para o comprador
+            try:
+                from security.services.aml_engine import AMLEngine
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                buyer_obj = User.objects.filter(id=buyer_id).first()
+                if buyer_obj:
+                    want_amount_dec = Decimal(str(offer_data['want_amount']))
+                    amount_aoa = AMLEngine.convert_to_aoa(want_amount_dec, 'AOA')
+                    aml_buyer = AMLEngine.evaluate_transaction_risk(
+                        user=buyer_obj,
+                        amount_aoa=amount_aoa,
+                        currency_code='AOA'
+                    )
+                    if aml_buyer.is_blocked:
+                        raise ValidationError({'detail': f'Operação não permitida pelo compliance BNA: {aml_buyer.block_reason}'})
+            except ValidationError:
+                raise
+            except Exception:
+                pass
+
             # 3. Cria a transação
             tx = TransactionEntity(
                 id=uuid.uuid4(),
