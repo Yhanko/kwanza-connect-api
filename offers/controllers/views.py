@@ -49,6 +49,8 @@ class CurrencyListView(APIView):
 # ─────────────────────────────────────────────
 
 class OfferListCreateView(APIView):
+    throttle_scope = 'offers_create'
+
     def get_permissions(self):
         if self.request.method == 'POST':
             return [IsAuthenticated(), IsVerified()]
@@ -197,6 +199,7 @@ class OfferCloseView(APIView):
 
 class ExpressInterestView(APIView):
     permission_classes = [IsAuthenticated, IsVerified]
+    throttle_scope = 'offers_interest'
 
     @extend_schema(request=OfferInterestCreateSerializer, tags=['Interesses'])
     def post(self, request, offer_id: str):

@@ -11,6 +11,7 @@ from ..infra.repositories import DjangoRatesRepository
 
 class ExchangeRateListView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'rates_public'
 
     @extend_schema(tags=['Câmbios'])
     def get(self, request):
@@ -22,6 +23,7 @@ class ExchangeRateListView(APIView):
 
 class ConvertCurrencyView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = 'rates_public'
 
     @extend_schema(
         tags=['Câmbios'],

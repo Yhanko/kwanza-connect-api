@@ -77,3 +77,5 @@ cloudinary==1.45.0
 django-extensions==4.1
 pydotplus==2.0.2
 dj-database-url==2.1.0
+pyotp==2.9.0
+qrcode==8.0

@@ -10,6 +10,9 @@ class AuditLogEntity:
     action: str  # Ex: 'LOGIN', 'CREATE_OFFER', 'UPDATE_PROFILE'
     resource: str  # Ex: 'offers', 'users'
     resource_id: Optional[str] = None
+    status: str = 'SUCCESS'  # 'SUCCESS', 'FAILURE', 'ATTEMPT', 'BLOCKED', 'PENDING'
+    severity: str = 'INFO'  # 'INFO', 'WARNING', 'CRITICAL'
+    actor_email: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
@@ -20,3 +23,7 @@ class AuditLogEntity:
             self.id = uuid.uuid4()
         if self.timestamp is None:
             self.timestamp = datetime.now()
+        if not self.status:
+            self.status = 'SUCCESS'
+        if not self.severity:
+            self.severity = 'INFO'

@@ -182,19 +182,41 @@ REST_FRAMEWORK = {
         'security.permissions.HasAPIKey',
         'rest_framework.permissions.IsAuthenticated',
     ),
-    # PROTEÇÃO DE RATE LIMITING (THROTTLING):
+    # PROTEÇÃO DE RATE LIMITING (THROTTLING) AVANÇADO — CONFORMIDADE BNA:
     # Controla a frequência de requisições por cliente para evitar ataques DoS, força bruta e abusos.
-    # - AnonRateThrottle: Limita visitantes não autenticados pelo endereço IP (10 requisições/minuto).
-    # - UserRateThrottle: Limita utilizadores autenticados pelo ID do utilizador no JWT (100 requisições/minuto).
-    # Requisições que excedam estes limites recebem HTTP 429 (Too Many Requests). O contador usa cache em Redis.
+    # - ReliableAnonRateThrottle: Limita visitantes não autenticados com resolução segura de IP contra spoofing.
+    # - KYCTieredUserRateThrottle: Limita utilizadores autenticados com taxas dinâmicas e proporcionais ao nível de KYC.
+    # - ScopedRateThrottle: Limita endpoints específicos conforme o 'throttle_scope' configurado na View.
+    # Requisições que excedam estes limites recebem HTTP 429 (Too Many Requests), cabeçalho Retry-After e auditoria automática.
     'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
+        'security.throttles.ReliableAnonRateThrottle',
+        'security.throttles.KYCTieredUserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '10/minute',
-        'user': '100/minute',
+        # Limites globais por nível de conta e risco KYC (Sandbox BNA)
+        'anon': '30/minute',
+        'user_unverified': '60/minute',     # Utilizadores sem KYC aprovado
+        'user_verified': '180/minute',      # Utilizadores com KYC aprovado
+        'user_admin': '300/minute',         # Administradores do sistema
+        'user': '120/minute',               # Fallback padrão
+
+        # Limites específicos por escopo (Segurança & Requisitos BNA)
+        'auth_login': '5/minute',             # Previne força bruta / credential stuffing no login
+        'auth_2fa': '5/minute',               # Validação de segundo fator 2FA / Backup codes
+        'auth_register': '5/minute',          # Previne criação em massa de contas falsas
+        'auth_password_reset': '3/minute',    # Previne spam de redefinição de senhas / emails
+        'auth_verify_email': '10/minute',     # Validação de token de email
+        'admin_auth': '5/minute',             # Login e registo de administração com limite estrito
+        'token_refresh': '30/minute',         # Renovação de access tokens JWT
+        'kyc_upload': '5/minute',             # Upload de documentos pesados de identificação
+        'offers_create': '20/minute',         # Criação de ofertas no livro de ordens P2P
+        'offers_interest': '30/minute',       # Manifestação de interesse em ofertas
+        'transactions': '20/minute',          # Confirmação e avaliação de transações
+        'user_reports': '5/minute',           # Submissão de denúncias/moderação
+        'rates_public': '60/minute',          # Consulta e conversão pública de taxas de câmbio
     },
+
     'DEFAULT_PAGINATION_CLASS': 'app.pagination.StandardPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_FILTER_BACKENDS': [

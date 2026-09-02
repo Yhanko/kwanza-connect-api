@@ -103,6 +103,45 @@ def handle_global_errors(exc, context) -> Response:
     message = STATUS_MESSAGES.get(code, 'Erro na operação.')
     errors  = None
 
+    # ── Tratamento Especializado de Rate Limiting (HTTP 429) ─────────────
+    if code == 429:
+        wait_seconds = getattr(exc, 'wait', None)
+        retry_msg = (
+            f"Demasiados pedidos. Limite de segurança excedido. Por favor, aguarde {int(wait_seconds)} segundo(s) antes de tentar novamente."
+            if wait_seconds else
+            "Demasiados pedidos. Limite de segurança excedido. Aguarde e tente novamente."
+        )
+        payload = {
+            'success': False,
+            'status': 429,
+            'error_code': 'RATE_LIMIT_EXCEEDED',
+            'message': retry_msg,
+        }
+        if wait_seconds is not None:
+            payload['retry_after_seconds'] = int(wait_seconds)
+            response.headers['Retry-After'] = str(int(wait_seconds))
+            
+        response.data = payload
+
+        # Auditoria automática de incidente de segurança (Conformidade BNA)
+        request = context.get('request')
+        if request:
+            from app.audit_service import audit_log
+            audit_log(
+                action='RATE_LIMIT_EXCEEDED',
+                resource='security',
+                severity='WARNING',
+                status='BLOCKED',
+                metadata={
+                    'view': str(context.get('view', '?')),
+                    'wait_seconds': int(wait_seconds) if wait_seconds else None,
+                    'path': getattr(request, 'path', None),
+                },
+                request=request
+            )
+        return response
+
+
     # DRF devolve dicts com 'detail' ou com campos de erro
     if isinstance(data, dict):
         if 'detail' in data:
@@ -117,8 +156,6 @@ def handle_global_errors(exc, context) -> Response:
                 'permission_denied':      'Acesso negado. Não tem permissão para realizar esta acção.',
                 'not_found':              'Recurso não encontrado.',
                 'method_not_allowed':     'Método não permitido neste endpoint.',
-                # TRATAMENTO DE EXCEÇÃO DE RATE LIMIT: Intercepta o limite de Throttle do DRF (HTTP 429) e devolve mensagem personalizada em português.
-                'throttled':              'Demasiados pedidos. Aguarde e tente novamente.',
             }
             error_code = getattr(data.get('detail'), 'code', None)
             if error_code and error_code in drf_code_map:
@@ -154,6 +191,7 @@ def handle_global_errors(exc, context) -> Response:
         response.data['errors'] = errors
 
     return response
+
 
 
 def _sanitize_validation_errors(data: dict) -> dict:
