@@ -491,5 +491,125 @@ class AuditChainIntegrityView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+# ─────────────────────────────────────────────
+# 🚨 Gestão de Incidentes de Cibersegurança & Notificação BNA (Prazo de 24h)
+# ─────────────────────────────────────────────
+
+class CyberIncidentListView(APIView):
+    """
+    Lista incidentes de cibersegurança registrados para monitoramento de conformidade com o BNA.
+    """
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(tags=['Compliance / BNA / Cibersegurança'], summary='Listar incidentes de cibersegurança')
+    def get(self, request):
+        from ..models import CyberIncidentReport
+        incidents = CyberIncidentReport.objects.all().order_by('-detected_at')
+        data = []
+        for inc in incidents:
+            data.append({
+                'id': str(inc.id),
+                'incident_number': inc.incident_number,
+                'title': inc.title,
+                'incident_type': inc.incident_type,
+                'incident_type_display': inc.get_incident_type_display(),
+                'severity': inc.severity,
+                'severity_display': inc.get_severity_display(),
+                'status': inc.status,
+                'status_display': inc.get_status_display(),
+                'affected_systems': inc.affected_systems,
+                'impact_summary': inc.impact_summary,
+                'remediation_actions': inc.remediation_actions,
+                'detected_at': inc.detected_at.isoformat(),
+                'bna_notified_at': inc.bna_notified_at.isoformat() if inc.bna_notified_at else None,
+                'bna_protocol_number': inc.bna_protocol_number,
+                'created_at': inc.created_at.isoformat(),
+            })
+        return Response({'status': 'success', 'data': data}, status=status.HTTP_200_OK)
+
+    @extend_schema(tags=['Compliance / BNA / Cibersegurança'], summary='Registrar novo incidente de cibersegurança')
+    def post(self, request):
+        from ..services.incident_reporting import CyberIncidentService
+        data = request.data
+        title = data.get('title')
+        incident_type = data.get('incident_type', 'OTHER_INCIDENT')
+        severity = data.get('severity', 'MEDIUM')
+        impact_summary = data.get('impact_summary', '')
+        remediation_actions = data.get('remediation_actions', '')
+
+        if not title or not impact_summary or not remediation_actions:
+            return Response(
+                {'status': 'error', 'message': 'Título, sumário de impacto e medidas corretivas são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        incident = CyberIncidentService.create_incident(
+            title=title,
+            incident_type=incident_type,
+            severity=severity,
+            impact_summary=impact_summary,
+            remediation_actions=remediation_actions,
+            reported_by=request.user,
+            affected_systems=data.get('affected_systems', 'KwanzaConnect API / Infraestrutura')
+        )
+        return Response({
+            'status': 'success',
+            'message': f'Incidente {incident.incident_number} registrado com sucesso.',
+            'data': {
+                'id': str(incident.id),
+                'incident_number': incident.incident_number,
+                'status': incident.status,
+                'detected_at': incident.detected_at.isoformat()
+            }
+        }, status=status.HTTP_201_CREATED)
+
+
+class ExportCyberIncidentBNAView(APIView):
+    """
+    Exporta o dossiê formal de comunicação do incidente para o BNA (Gabinete de Cibersegurança / LISPA).
+    """
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(tags=['Compliance / BNA / Cibersegurança'], summary='Exportar dossiê formal de notificação de incidente BNA')
+    def get(self, request, incident_id):
+        from ..models import CyberIncidentReport
+        from ..services.incident_reporting import CyberIncidentService
+        incident = get_object_or_404(CyberIncidentReport, id=incident_id)
+        dossier = CyberIncidentService.generate_bna_notification_dossier(incident)
+        return Response({'status': 'success', 'data': dossier}, status=status.HTTP_200_OK)
+
+
+class NotifyCyberIncidentBNAView(APIView):
+    """
+    Marca o incidente como formalmente notificado ao BNA dentro do prazo regulamentar de 24 horas.
+    """
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(tags=['Compliance / BNA / Cibersegurança'], summary='Registrar protocolo de notificação ao BNA')
+    def post(self, request, incident_id):
+        from ..models import CyberIncidentReport
+        from ..services.incident_reporting import CyberIncidentService
+        incident = get_object_or_404(CyberIncidentReport, id=incident_id)
+        protocol = request.data.get('protocol_number', '')
+        notes = request.data.get('notes', '')
+
+        updated_incident = CyberIncidentService.mark_as_reported_to_bna(
+            incident=incident,
+            protocol_number=protocol,
+            notes=notes
+        )
+        return Response({
+            'status': 'success',
+            'message': f'Notificação ao BNA do incidente {updated_incident.incident_number} registrada com sucesso.',
+            'data': {
+                'id': str(updated_incident.id),
+                'incident_number': updated_incident.incident_number,
+                'bna_protocol_number': updated_incident.bna_protocol_number,
+                'bna_notified_at': updated_incident.bna_notified_at.isoformat()
+            }
+        }, status=status.HTTP_200_OK)
+
+
+
 
 

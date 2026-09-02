@@ -409,12 +409,69 @@ class AMLEngine:
             )
             result.reports_created.append(sar)
 
+        # ── REGRA 5: Desvio Cambial Excessivo da Taxa BNA (RATE_OUTLIER) ───
+        if rate_snapshot and rate_snapshot > Decimal('0') and currency_code:
+            from security.services.spread_monitor import BNASpreadMonitor
+            is_valid_spread, is_warning_spread, dev_pct, spread_msg = BNASpreadMonitor.check_exchange_rate_spread(
+                offered_rate=rate_snapshot,
+                from_currency=currency_code,
+                to_currency='AOA'
+            )
+
+            if not is_valid_spread:
+                result.is_blocked = True
+                result.block_reason = spread_msg
+                result.rules_triggered.append('RATE_OUTLIER')
+                result.risk_score = 95
+                sar = SuspiciousActivityReport.objects.create(
+                    user=user,
+                    related_offer_id=offer_id,
+                    related_transaction_id=transaction_id,
+                    rule_code='RATE_OUTLIER',
+                    severity='CRITICAL',
+                    risk_score=95,
+                    amount_aoa=amount_aoa,
+                    status='UNDER_INVESTIGATION',
+                    details={
+                        'pattern': 'Tentativa de operação com taxa cambial excessivamente fora da banda regulamentar BNA.',
+                        'offered_rate': str(rate_snapshot),
+                        'currency_code': currency_code,
+                        'deviation_percent': round(dev_pct, 2),
+                        'amount_aoa': str(amount_aoa),
+                        'reason': spread_msg
+                    }
+                )
+                result.reports_created.append(sar)
+            elif is_warning_spread:
+                result.rules_triggered.append('RATE_OUTLIER')
+                result.risk_score = max(result.risk_score, 70)
+                sar = SuspiciousActivityReport.objects.create(
+                    user=user,
+                    related_offer_id=offer_id,
+                    related_transaction_id=transaction_id,
+                    rule_code='RATE_OUTLIER',
+                    severity='MEDIUM',
+                    risk_score=70,
+                    amount_aoa=amount_aoa,
+                    status='PENDING_REVIEW',
+                    details={
+                        'pattern': 'Operação com desvio cambial em relação à taxa de referência oficial do BNA.',
+                        'offered_rate': str(rate_snapshot),
+                        'currency_code': currency_code,
+                        'deviation_percent': round(dev_pct, 2),
+                        'amount_aoa': str(amount_aoa),
+                        'reason': spread_msg
+                    }
+                )
+                result.reports_created.append(sar)
+
         # Atualiza o score do perfil de risco se houve alertas
         if result.rules_triggered:
             profile.risk_score = min(100, profile.risk_score + len(result.rules_triggered) * 15)
             profile.save(update_fields=['risk_score'])
 
         return result
+
 
     @classmethod
     def get_user_limits_summary(cls, user) -> Dict[str, Any]:

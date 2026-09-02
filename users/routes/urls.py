@@ -7,7 +7,9 @@ from ..controllers.views import (
     ReportUserView,
     TwoFactorSetupView, TwoFactorEnableView,
     TwoFactorDisableView, TwoFactorVerifyLoginView,
+    UserPrivacyConsentView,
 )
+
 
 urlpatterns = [
     # Autenticação
@@ -38,5 +40,10 @@ urlpatterns = [
     
     # Moderação
     path('report/',                  ReportUserView.as_view(),     name='user-report'),
+
+    # Consentimento e Protecção de Dados (Lei n.º 22/11 - APD Angola)
+    path('consent/me/',              UserPrivacyConsentView.as_view(), name='user-consent-me'),
+    path('consent/',                 UserPrivacyConsentView.as_view(), name='user-consent-record'),
 ]
+
 

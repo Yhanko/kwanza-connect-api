@@ -193,10 +193,11 @@ class LoginUseCase:
         self.audit_service = RegisterAuditLogUseCase(audit_repo)
         self.auth_service = auth_service # TODO: Interface para autenticação
 
-    def execute(self, email: str, password: str) -> dict:
+    def execute(self, email: str, password: str, ip_address: str = '127.0.0.1', user_agent: str = '', **kwargs) -> dict:
         user = self.repository.get_by_email(email)
         if not user:
             raise AuthenticationFailed('Credenciais inválidas.')
+
 
         security = self.repository.get_security_by_user_id(user.id)
         if security and security.is_locked():
@@ -267,27 +268,46 @@ class LoginUseCase:
             }
 
 
-        # ── Auditoria ──────────────────────────────────────────────────
+        # ── Auditoria & Detecção de Anomalias de Acesso (Impossible Travel / Novo Dispositivo) ──
+        is_anomalous = False
+        anomaly_reasons = []
+        try:
+            from security.services.anomaly_detector import LoginAnomalyDetector
+            is_anomalous, anomaly_reasons, _ = LoginAnomalyDetector.analyze_and_record_login(
+                user=django_user,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                country_code=kwargs.get('country_code', 'AO'),
+                city=kwargs.get('city', '')
+            )
+        except Exception:
+            pass
+
         if hasattr(self, 'audit_service') and self.audit_service:
             self.audit_service.execute(
                 action='user_logged_in',
                 resource='auth',
                 user_id=user.id,
-                metadata={'method': 'jwt'}
+                metadata={
+                    'method': 'jwt',
+                    'ip': ip_address,
+                    'is_anomalous': is_anomalous,
+                    'anomaly_reasons': anomaly_reasons
+                }
             )
 
         # EMISSÃO DE TOKENS JWT NO LOGIN BEM-SUCEDIDO:
-        # Utiliza o SimpleJWT para criar um par de tokens para o utilizador autenticado:
-        # 1. access_token: Usado no cabeçalho 'Authorization: Bearer <token>' em todas as requisições autenticadas (expira em 60m).
-        # 2. refresh_token: Usado para obter um novo par de tokens quando o access token expirar (expira em 7d).
         from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(django_user)
         return {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
             'user': django_user,
-            'two_factor_required': False
+            'two_factor_required': False,
+            'is_anomalous_login': is_anomalous,
+            'anomaly_warnings': anomaly_reasons
         }
+
 
 
 class VerifyEmailUseCase:

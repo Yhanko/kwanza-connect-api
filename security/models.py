@@ -202,3 +202,74 @@ class DatabaseBackupLog(models.Model):
         return f"BACKUP-{self.created_at.strftime('%Y%m%d_%H%M%S')} [{self.status}] ({self.file_size_bytes} bytes)"
 
 
+# ─────────────────────────────────────────────
+# 🚨 Gestão de Incidentes de Cibersegurança & Notificação BNA (Prazo de 24h)
+# ─────────────────────────────────────────────
+
+class CyberIncidentReport(models.Model):
+    """
+    Registo formal de Incidentes de Segurança da Informação e Cibersegurança,
+    conforme as directrizes de Notificação Obrigatória em 24h do Banco Nacional de Angola (BNA).
+    """
+    INCIDENT_TYPES = [
+        ('DDOS_ATTACK', 'Ataque de Negação de Serviço Distribuído (DDoS)'),
+        ('DATA_LEAK_ATTEMPT', 'Tentativa de Fuga / Exfiltração de Dados'),
+        ('BRUTE_FORCE_BURST', 'Ataque de Força Bruta / Credential Stuffing'),
+        ('SYSTEM_OUTAGE', 'Indisponibilidade Não Programada do Sistema'),
+        ('UNAUTHORIZED_ACCESS', 'Tentativa de Acesso Não Autorizado / Privilégios'),
+        ('MALWARE_RANSOMWARE', 'Ameaça de Código Malicioso / Ransomware'),
+        ('MAN_IN_THE_MIDDLE', 'Tentativa de Intercepção de Comunicações'),
+        ('OTHER_INCIDENT', 'Outro Incidente Relevante de TI'),
+    ]
+
+    SEVERITY_LEVELS = [
+        ('LOW', 'Baixa (Sem Impacto Financeiro/Operacional)'),
+        ('MEDIUM', 'Média (Impacto Operacional Parcial)'),
+        ('HIGH', 'Alta (Risco Iminente / Degradação de Serviços)'),
+        ('CRITICAL', 'Crítica (Comprometimento de Dados ou Interrupção Severa)'),
+    ]
+
+    STATUS_CHOICES = [
+        ('DETECTED', 'Detectado / Em Análise Inicial'),
+        ('CONTAINED', 'Contido / Medidas de Mitigação Aplicadas'),
+        ('REPORTED_TO_BNA', 'Notificado ao BNA (Prazo de 24h Cumprido)'),
+        ('RESOLVED', 'Totalmente Resolvido e Encerrado'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    incident_number = models.CharField(max_length=50, unique=True, db_index=True)
+    title = models.CharField(max_length=200)
+    incident_type = models.CharField(max_length=40, choices=INCIDENT_TYPES, default='OTHER_INCIDENT', db_index=True)
+    severity = models.CharField(max_length=20, choices=SEVERITY_LEVELS, default='MEDIUM', db_index=True)
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='DETECTED', db_index=True)
+
+    detected_at = models.DateTimeField(default=timezone.now, db_index=True)
+    contained_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    # Prazo de 24h e Notificação ao BNA
+    bna_notified_at = models.DateTimeField(null=True, blank=True)
+    bna_protocol_number = models.CharField(max_length=100, blank=True)
+    bna_notification_notes = models.TextField(blank=True)
+
+    affected_systems = models.CharField(max_length=255, default='KwanzaConnect API / Infraestrutura')
+    impact_summary = models.TextField(help_text="Descrição sumária do impacto nas operações ou dados")
+    root_cause = models.TextField(blank=True, help_text="Causa raiz apurada")
+    remediation_actions = models.TextField(help_text="Medidas corretivas e preventivas adotadas")
+
+    reported_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reported_incidents'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Incidente de Cibersegurança (BNA)'
+        verbose_name_plural = 'Incidentes de Cibersegurança (BNA)'
+
+    def __str__(self):
+        return f"{self.incident_number} [{self.severity}] - {self.title}"
+
+
+
