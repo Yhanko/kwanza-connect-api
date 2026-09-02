@@ -37,9 +37,11 @@ class UserSecurityEntity:
     locked_until: Optional[datetime] = None
     two_factor_enabled: bool = False
     two_factor_secret: str = ""
+    two_factor_backup_codes: List[str] = field(default_factory=list)
     password_changed_at: Optional[datetime] = None
     password_reset_token: str = ""
     password_reset_expires: Optional[datetime] = None
+
 
     def is_locked(self) -> bool:
         if self.locked_until and self.locked_until > timezone.now():

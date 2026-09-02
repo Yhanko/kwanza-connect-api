@@ -195,8 +195,9 @@ class UserSecurity(models.Model):
     locked_until         = models.DateTimeField(null=True, blank=True)
 
     # 2FA (TOTP — Google Authenticator)
-    two_factor_enabled   = models.BooleanField(default=False)
-    two_factor_secret    = models.CharField(max_length=32, blank=True)
+    two_factor_enabled      = models.BooleanField(default=False)
+    two_factor_secret       = models.CharField(max_length=32, blank=True)
+    two_factor_backup_codes = models.JSONField(default=list, blank=True)
 
     # Auditoria de senha
     password_changed_at  = models.DateTimeField(null=True, blank=True)
@@ -204,6 +205,45 @@ class UserSecurity(models.Model):
     # Token de reset de senha
     password_reset_token   = models.CharField(max_length=64, blank=True)
     password_reset_expires = models.DateTimeField(null=True, blank=True)
+
+    def generate_backup_codes(self, count=8):
+        """
+        Gera uma lista de códigos de recuperação alfanuméricos de uso único.
+        Armazena os hashes SHA-256 no banco e retorna os códigos em texto claro.
+        """
+        import secrets
+        import hashlib
+        plain_codes = []
+        hashed_codes = []
+        for _ in range(count):
+            part1 = secrets.token_hex(2).upper()
+            part2 = secrets.token_hex(2).upper()
+            code = f"{part1}-{part2}"
+            plain_codes.append(code)
+            hashed_codes.append(hashlib.sha256(code.encode()).hexdigest())
+
+        self.two_factor_backup_codes = hashed_codes
+        self.save(update_fields=['two_factor_backup_codes'])
+        return plain_codes
+
+    def verify_and_consume_backup_code(self, raw_code: str) -> bool:
+        """
+        Verifica se o código de recuperação fornecido é válido.
+        Se for válido, consome-o imediatamente (de uso único) e retorna True.
+        """
+        import hashlib
+        if not raw_code:
+            return False
+        normalized_code = raw_code.strip().upper()
+        code_hash = hashlib.sha256(normalized_code.encode()).hexdigest()
+
+        if self.two_factor_backup_codes and code_hash in self.two_factor_backup_codes:
+            updated_codes = [c for c in self.two_factor_backup_codes if c != code_hash]
+            self.two_factor_backup_codes = updated_codes
+            self.save(update_fields=['two_factor_backup_codes'])
+            return True
+        return False
+
 
     class Meta:
         verbose_name = 'Segurança do utilizador'

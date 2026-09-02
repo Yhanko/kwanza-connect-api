@@ -5,6 +5,8 @@ from ..controllers.views import (
     MeView, ChangePasswordView, PublicProfileView,
     KYCSubmitView, KYCStatusView, UserLocationsView,
     ReportUserView,
+    TwoFactorSetupView, TwoFactorEnableView,
+    TwoFactorDisableView, TwoFactorVerifyLoginView,
 )
 
 urlpatterns = [
@@ -15,6 +17,12 @@ urlpatterns = [
     path('verify-email/<str:token>/', VerifyEmailView.as_view(),   name='auth-verify-email'),
     path('forgot-password/',         ForgotPasswordView.as_view(), name='auth-forgot-password'),
     path('reset-password/',          ResetPasswordView.as_view(),  name='auth-reset-password'),
+
+    # Autenticação de 2 Fatores (2FA / TOTP)
+    path('2fa/setup/',               TwoFactorSetupView.as_view(),        name='auth-2fa-setup'),
+    path('2fa/enable/',              TwoFactorEnableView.as_view(),       name='auth-2fa-enable'),
+    path('2fa/disable/',             TwoFactorDisableView.as_view(),      name='auth-2fa-disable'),
+    path('2fa/verify/',              TwoFactorVerifyLoginView.as_view(),  name='auth-2fa-verify'),
 
     # Perfil
     path('me/',                      MeView.as_view(),             name='user-me'),
@@ -31,3 +39,4 @@ urlpatterns = [
     # Moderação
     path('report/',                  ReportUserView.as_view(),     name='user-report'),
 ]
+

@@ -17,12 +17,16 @@ from ..infra.serializers import (
     ForgotPasswordSerializer, ResetPasswordSerializer,
     UserProfileSerializer, UpdateProfileSerializer, IdentityDocumentSerializer,
     PublicUserSerializer, ReportCreateSerializer,
+    TwoFactorSetupResponseSerializer, TwoFactorEnableSerializer,
+    TwoFactorDisableSerializer, TwoFactorVerifyLoginSerializer,
 )
 from ..services.use_cases import (
     RegisterUserUseCase, LoginUseCase, VerifyEmailUseCase,
     ChangePasswordUseCase, ForgotPasswordUseCase, ResetPasswordUseCase,
     UpdateProfileUseCase, SubmitKYCUseCase, SubmitReportUseCase,
+    Setup2FAUseCase, Enable2FAUseCase, Disable2FAUseCase, Verify2FALoginUseCase,
 )
+
 from ..infra.repositories import DjangoUserRepository
 from ..infra.email_service import TerminalEmailService
 from audit.infra.repositories import DjangoAuditRepository
@@ -103,6 +107,13 @@ class LoginView(APIView):
             audit_repo = DjangoAuditRepository()
             tokens = LoginUseCase(repo, audit_repo).execute(email=email, password=password)
             
+            # Se for necessário 2FA, retorna o token temporário de pré-autenticação
+            if tokens.get('two_factor_required'):
+                return success_response(
+                    data=tokens,
+                    message='Autenticação de 2 fatores necessária. Introduza o código do autenticador.'
+                )
+
             # Serialize the user to include profile fields
             user_model = tokens.pop('user')
             tokens['user'] = UserProfileSerializer(user_model).data
@@ -126,6 +137,7 @@ class LoginView(APIView):
                 request=request
             )
             raise e
+
 
 
 class LogoutView(APIView):
@@ -401,3 +413,107 @@ class ReportUserView(APIView):
         )
         
         return success_response(message='Denúncia enviada com sucesso. A equipa de moderação irá analisar o caso brevemente.')
+
+
+# ─────────────────────────────────────────────
+#  Autenticação de Dois Fatores (2FA / TOTP)
+# ─────────────────────────────────────────────
+
+class TwoFactorSetupView(APIView):
+    """
+    Inicia o processo de configuração do 2FA para a conta autenticada.
+    Retorna a chave secreta Base32, URL otpauth e QR Code em formato Base64 Data URI.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: TwoFactorSetupResponseSerializer},
+        tags=['Autenticação - 2FA'],
+        description='Gera uma nova chave secreta TOTP e QR Code para leitura no Google Authenticator ou Authy.'
+    )
+    def post(self, request):
+        repo = DjangoUserRepository()
+        result = Setup2FAUseCase(repo).execute(user_id=request.user.id)
+        return success_response(data=result, message='Chave secreta e QR Code gerados com sucesso.')
+
+
+class TwoFactorEnableView(APIView):
+    """
+    Valida o primeiro código TOTP de 6 dígitos gerado pelo autenticador e ativa o 2FA.
+    Retorna 8 códigos de recuperação (Backup Codes) de uso único.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=TwoFactorEnableSerializer,
+        tags=['Autenticação - 2FA'],
+        description='Valida o código do aplicativo autenticador, ativa o 2FA e gera 8 códigos de emergência.'
+    )
+    def post(self, request):
+        serializer = TwoFactorEnableSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        repo = DjangoUserRepository()
+        audit_repo = DjangoAuditRepository()
+        result = Enable2FAUseCase(repo, audit_repo).execute(
+            user_id=request.user.id,
+            code=serializer.validated_data['code']
+        )
+        return success_response(data=result, message='Autenticação de 2 fatores ativada com sucesso.')
+
+
+class TwoFactorDisableView(APIView):
+    """
+    Desativa a autenticação de 2 fatores exigindo a senha atual e um código válido.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=TwoFactorDisableSerializer,
+        tags=['Autenticação - 2FA'],
+        description='Desativa o 2FA mediante confirmação da senha da conta e código TOTP.'
+    )
+    def post(self, request):
+        serializer = TwoFactorDisableSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        repo = DjangoUserRepository()
+        audit_repo = DjangoAuditRepository()
+        result = Disable2FAUseCase(repo, audit_repo).execute(
+            user_id=request.user.id,
+            password=serializer.validated_data['password'],
+            code=serializer.validated_data['code']
+        )
+        return success_response(data=result, message='Autenticação de 2 fatores desativada com sucesso.')
+
+
+class TwoFactorVerifyLoginView(APIView):
+    """
+    Conclui o login de 2 fatores validando o pre_auth_token e o código TOTP ou Backup Code.
+    Emite os tokens JWT finais (access e refresh).
+    """
+    permission_classes = [AllowAny]
+    throttle_scope = 'auth_2fa'
+
+    @extend_schema(
+        request=TwoFactorVerifyLoginSerializer,
+        tags=['Autenticação - 2FA'],
+        description='Valida o código de 6 dígitos ou Backup Code após o primeiro passo do login e emite os tokens JWT.'
+    )
+    def post(self, request):
+        serializer = TwoFactorVerifyLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        repo = DjangoUserRepository()
+        audit_repo = DjangoAuditRepository()
+        result = Verify2FALoginUseCase(repo, audit_repo).execute(
+            pre_auth_token=serializer.validated_data['pre_auth_token'],
+            code=serializer.validated_data['code']
+        )
+
+        # Serializa o perfil do utilizador
+        user_model = result.pop('user')
+        result['user'] = UserProfileSerializer(user_model).data
+
+        return success_response(data=result, message='Autenticação de 2 fatores concluída com sucesso.')
+

@@ -191,21 +191,28 @@ class PublicUserSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     """Perfil completo — apenas para o próprio utilizador."""
     avatar = serializers.SerializerMethodField()
+    two_factor_enabled = serializers.SerializerMethodField()
+
     class Meta:
         model  = User
         fields = [
             'id', 'email', 'username', 'full_name', 'phone', 'country_code', 'province', 'municipality', 'neighborhood',
             'city', 'address', 'occupation', 'bio', 'avatar',
             'is_active', 'is_verified', 'is_available', 'is_staff',
-            'verification_status', 'preferred_give_currency',
+            'verification_status', 'two_factor_enabled', 'preferred_give_currency',
             'preferred_want_currency', 'last_seen', 'date_joined',
             'suspended_until', 'restricted_pages'
         ]
         read_only_fields = [
             'id', 'email', 'username', 'is_active', 'is_verified', 'is_staff',
-            'verification_status', 'last_seen', 'date_joined',
+            'verification_status', 'two_factor_enabled', 'last_seen', 'date_joined',
             'suspended_until', 'restricted_pages'
         ]
+
+    def get_two_factor_enabled(self, obj) -> bool:
+        security = getattr(obj, 'security', None)
+        return bool(security.two_factor_enabled) if security else False
+
 
     def get_avatar(self, obj):
         avatar = getattr(obj, 'avatar', None)
@@ -299,3 +306,55 @@ class IdentityDocumentSerializer(serializers.ModelSerializer):
                 'Envie frente + verso do documento OU um ficheiro PDF.'
             )
         return data
+
+
+# ─────────────────────────────────────────────
+#  Autenticação de Dois Fatores (2FA / TOTP)
+# ─────────────────────────────────────────────
+
+class TwoFactorSetupResponseSerializer(serializers.Serializer):
+    secret      = serializers.CharField(help_text='Chave secreta em formato Base32 para introdução manual no autenticador.')
+    qr_code     = serializers.CharField(help_text='Imagem do QR Code em formato Base64 Data URI (PNG) para leitura com a câmara.')
+    otpauth_url = serializers.CharField(help_text='URI padrão otpauth:// para clientes TOTP.')
+
+
+class TwoFactorEnableSerializer(serializers.Serializer):
+    code = serializers.CharField(
+        max_length=8,
+        min_length=6,
+        required=True,
+        help_text='Código de 6 dígitos gerado pelo Google Authenticator ou Authy.'
+    )
+
+    def validate_code(self, value):
+        cleaned = value.strip().replace(' ', '').replace('-', '')
+        if not cleaned.isdigit() or len(cleaned) != 6:
+            raise serializers.ValidationError('O código deve conter exatamente 6 dígitos numéricos.')
+        return cleaned
+
+
+class TwoFactorDisableSerializer(serializers.Serializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        help_text='Senha atual da conta para confirmação de segurança.'
+    )
+    code = serializers.CharField(
+        max_length=12,
+        required=True,
+        help_text='Código TOTP de 6 dígitos do autenticador ou código de recuperação (Backup Code).'
+    )
+
+
+class TwoFactorVerifyLoginSerializer(serializers.Serializer):
+    pre_auth_token = serializers.CharField(
+        required=True,
+        help_text='Token temporário de desafio 2FA retornado no primeiro passo do login.'
+    )
+    code = serializers.CharField(
+        max_length=12,
+        required=True,
+        help_text='Código TOTP de 6 dígitos do autenticador ou Código de Recuperação (Backup Code).'
+    )
+

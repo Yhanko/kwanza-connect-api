@@ -64,10 +64,12 @@ class DjangoUserRepository(IUserRepository):
             locked_until=django_security.locked_until,
             two_factor_enabled=django_security.two_factor_enabled,
             two_factor_secret=django_security.two_factor_secret,
+            two_factor_backup_codes=django_security.two_factor_backup_codes or [],
             password_changed_at=django_security.password_changed_at,
             password_reset_token=django_security.password_reset_token,
             password_reset_expires=django_security.password_reset_expires
         )
+
 
     def _identity_to_entity(self, django_identity: DjangoIdentityDocument) -> IdentityDocumentEntity:
         return IdentityDocumentEntity(
@@ -218,11 +220,13 @@ class DjangoUserRepository(IUserRepository):
                 'locked_until': security.locked_until,
                 'two_factor_enabled': security.two_factor_enabled,
                 'two_factor_secret': security.two_factor_secret,
+                'two_factor_backup_codes': security.two_factor_backup_codes,
                 'password_changed_at': security.password_changed_at,
                 'password_reset_token': security.password_reset_token,
                 'password_reset_expires': security.password_reset_expires,
             }
         )
+
 
     def get_security_by_user_id(self, user_id: uuid.UUID) -> Optional[UserSecurityEntity]:
         try:

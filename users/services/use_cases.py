@@ -245,9 +245,28 @@ class LoginUseCase:
         user.update_last_seen()
         self.repository.save(user)
 
+        # Se o utilizador tiver 2FA activo, emite token temporário de 5 minutos assinado
+        if security and security.two_factor_enabled:
+            import jwt
+            from django.conf import settings
+            from datetime import timedelta
+            from django.utils import timezone
+            
+            pre_auth_payload = {
+                'user_id': str(user.id),
+                'action': '2fa_pre_auth',
+                'exp': timezone.now() + timedelta(minutes=5),
+                'iat': timezone.now()
+            }
+            pre_auth_token = jwt.encode(pre_auth_payload, settings.SECRET_KEY, algorithm='HS256')
+            return {
+                'two_factor_required': True,
+                'pre_auth_token': pre_auth_token,
+                'message': 'Autenticação de 2 fatores necessária. Introduza o código do seu autenticador.'
+            }
+
         # ── Auditoria ──────────────────────────────────────────────────
-        # Nota: LoginUseCase ainda não tinha self.audit_service, preciso injetar no construtor
-        if hasattr(self, 'audit_service'):
+        if hasattr(self, 'audit_service') and self.audit_service:
             self.audit_service.execute(
                 action='user_logged_in',
                 resource='auth',
@@ -264,8 +283,10 @@ class LoginUseCase:
         return {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
-            'user': django_user
+            'user': django_user,
+            'two_factor_required': False
         }
+
 
 class VerifyEmailUseCase:
     def __init__(self, repository: IUserRepository):
@@ -492,3 +513,247 @@ class SubmitReportUseCase:
         )
         
         return saved_report
+
+
+# ─────────────────────────────────────────────
+#  Casos de Uso de Autenticação de 2 Fatores (2FA)
+# ─────────────────────────────────────────────
+
+class Setup2FAUseCase:
+    """
+    Inicia a configuração do 2FA para o utilizador autenticado.
+    Gera chave secreta Base32, URI otpauth e imagem QR Code em Base64 Data URI.
+    """
+    def __init__(self, repository: IUserRepository):
+        self.repository = repository
+
+    def execute(self, user_id: uuid.UUID) -> dict:
+        import pyotp
+        import qrcode
+        import io
+        import base64
+
+        user = self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFound('Utilizador não encontrado.')
+
+        security = self.repository.get_security_by_user_id(user_id)
+        if not security:
+            raise NotFound('Registo de segurança não encontrado.')
+
+        # Gera segredo base32 aleatório (160 bits de entropia)
+        secret = pyotp.random_base32()
+
+        # Gera o URI padrão TOTP
+        totp = pyotp.TOTP(secret)
+        otpauth_url = totp.provisioning_uri(
+            name=user.email,
+            issuer_name='KwanzaConnect'
+        )
+
+        # Gera a imagem do QR Code em Base64 PNG
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=8,
+            border=2
+        )
+        qr.add_data(otpauth_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        qr_base64 = f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode('utf-8')}"
+
+        # Guarda a chave secreta temporariamente (two_factor_enabled permanece False até confirmação)
+        security.two_factor_secret = secret
+        self.repository.update_security(security)
+
+        return {
+            'secret': secret,
+            'qr_code': qr_base64,
+            'otpauth_url': otpauth_url
+        }
+
+
+class Enable2FAUseCase:
+    """
+    Confirma e ativa o 2FA mediante validação do primeiro código TOTP digitado.
+    Gera e devolve 8 códigos de recuperação (Backup Codes) criptografados com SHA-256.
+    """
+    def __init__(self, repository: IUserRepository, audit_repo: IAuditRepository):
+        self.repository = repository
+        self.audit_service = RegisterAuditLogUseCase(audit_repo)
+
+    def execute(self, user_id: uuid.UUID, code: str) -> dict:
+        import pyotp
+        from users.models import UserSecurity as DjangoUserSecurity
+
+        security = self.repository.get_security_by_user_id(user_id)
+        if not security or not security.two_factor_secret:
+            raise ValidationError('Configuração de 2FA não iniciada. Execute o setup primeiro.')
+
+        # Validação do código de 6 dígitos com janela de tolerância de tempo
+        totp = pyotp.TOTP(security.two_factor_secret)
+        if not totp.verify(code.strip(), valid_window=1):
+            raise ValidationError('Código de verificação de 2 fatores inválido ou expirado.')
+
+        # Ativa o 2FA e gera códigos de recuperação
+        django_security = DjangoUserSecurity.objects.get(id=security.id)
+        django_security.two_factor_enabled = True
+        django_security.two_factor_secret = security.two_factor_secret
+        backup_codes = django_security.generate_backup_codes(count=8)
+
+        # Regista auditoria
+        self.audit_service.execute(
+            action='2FA_ENABLED',
+            resource='users',
+            user_id=user_id,
+            resource_id=str(user_id),
+            status='SUCCESS',
+            severity='INFO'
+        )
+
+        return {
+            'message': 'Autenticação de 2 fatores ativada com sucesso.',
+            'two_factor_enabled': True,
+            'backup_codes': backup_codes
+        }
+
+
+class Disable2FAUseCase:
+    """
+    Desativa o 2FA exigindo validação prévia de senha e código de autenticação (ou backup code).
+    """
+    def __init__(self, repository: IUserRepository, audit_repo: IAuditRepository):
+        self.repository = repository
+        self.audit_service = RegisterAuditLogUseCase(audit_repo)
+
+    def execute(self, user_id: uuid.UUID, password: str, code: str) -> dict:
+        import pyotp
+        from django.contrib.auth import authenticate
+        from users.models import UserSecurity as DjangoUserSecurity
+
+        user = self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFound('Utilizador não encontrado.')
+
+        security = self.repository.get_security_by_user_id(user_id)
+        if not security or not security.two_factor_enabled:
+            raise ValidationError('A autenticação de 2 fatores não está ativa nesta conta.')
+
+        # Confirmação da senha atual
+        django_user = authenticate(username=user.email, password=password)
+        if not django_user:
+            raise ValidationError('Senha incorreta.')
+
+        django_security = DjangoUserSecurity.objects.get(id=security.id)
+
+        # Validação do código TOTP ou código de recuperação
+        totp = pyotp.TOTP(security.two_factor_secret)
+        is_totp_valid = totp.verify(code.strip(), valid_window=1)
+        is_backup_valid = False
+        if not is_totp_valid:
+            is_backup_valid = django_security.verify_and_consume_backup_code(code)
+
+        if not is_totp_valid and not is_backup_valid:
+            raise ValidationError('Código de 2 fatores ou código de recuperação inválido.')
+
+        # Desativa 2FA
+        django_security.two_factor_enabled = False
+        django_security.two_factor_secret = ''
+        django_security.two_factor_backup_codes = []
+        django_security.save()
+
+        # Regista auditoria de segurança
+        self.audit_service.execute(
+            action='2FA_DISABLED',
+            resource='users',
+            user_id=user_id,
+            resource_id=str(user_id),
+            status='SUCCESS',
+            severity='WARNING'
+        )
+
+        return {
+            'message': 'Autenticação de 2 fatores desativada com sucesso.',
+            'two_factor_enabled': False
+        }
+
+
+class Verify2FALoginUseCase:
+    """
+    Conclui o login de 2 fatores validando o pre_auth_token e o código TOTP ou Backup Code.
+    Emite os tokens JWT finais (access e refresh).
+    """
+    def __init__(self, repository: IUserRepository, audit_repo: IAuditRepository):
+        self.repository = repository
+        self.audit_service = RegisterAuditLogUseCase(audit_repo)
+
+    def execute(self, pre_auth_token: str, code: str) -> dict:
+        import jwt
+        import pyotp
+        from django.conf import settings
+        from rest_framework.exceptions import AuthenticationFailed
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from users.models import User as DjangoUser, UserSecurity as DjangoUserSecurity
+
+        try:
+            payload = jwt.decode(pre_auth_token, settings.SECRET_KEY, algorithms=['HS256'])
+            if payload.get('action') != '2fa_pre_auth':
+                raise AuthenticationFailed('Token de autenticação temporário inválido.')
+            user_id = payload.get('user_id')
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed('A sessão de autenticação de 2 fatores expirou. Faça login novamente.')
+        except Exception:
+            raise AuthenticationFailed('Token de autenticação temporário inválido.')
+
+        try:
+            django_user = DjangoUser.objects.get(id=user_id)
+            django_security = DjangoUserSecurity.objects.get(user=django_user)
+        except (DjangoUser.DoesNotExist, DjangoUserSecurity.DoesNotExist):
+            raise AuthenticationFailed('Utilizador não encontrado.')
+
+        if not django_security.two_factor_enabled:
+            raise AuthenticationFailed('2FA não configurado nesta conta.')
+
+        # Valida código TOTP ou código de recuperação
+        totp = pyotp.TOTP(django_security.two_factor_secret)
+        is_totp_valid = totp.verify(code.strip(), valid_window=1)
+        is_backup_valid = False
+        if not is_totp_valid:
+            is_backup_valid = django_security.verify_and_consume_backup_code(code)
+
+        if not is_totp_valid and not is_backup_valid:
+            self.audit_service.execute(
+                action='2FA_LOGIN_FAILURE',
+                resource='auth',
+                user_id=django_user.id,
+                resource_id=str(django_user.id),
+                status='FAILURE',
+                severity='WARNING',
+                metadata={'email': django_user.email}
+            )
+            raise AuthenticationFailed('Código de autenticação de 2 fatores inválido.')
+
+        # Sucesso no 2FA
+        django_user.update_last_seen()
+        self.audit_service.execute(
+            action='2FA_LOGIN_SUCCESS',
+            resource='auth',
+            user_id=django_user.id,
+            resource_id=str(django_user.id),
+            status='SUCCESS',
+            severity='INFO',
+            metadata={'method': 'backup_code' if is_backup_valid else 'totp', 'email': django_user.email}
+        )
+
+        refresh = RefreshToken.for_user(django_user)
+        return {
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': django_user,
+            'two_factor_required': False
+        }
+
