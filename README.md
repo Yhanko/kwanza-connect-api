@@ -178,7 +178,9 @@ celery -A app worker -l info --pool=solo
 # TERMINAL 3: Agendador the Tasks 
 celery -A app beat -l info
 ```
-
+# Agendamento via Celery Beat & Comandos CLI:
+# Tarefas agendadas periódicas e comandos 
+python manage.py backup_database e python manage.py run_dr_drill.
 ---
 
 ## 📖 Swagger e Exploração the Routas REST

@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 import uuid
+from security.masking import sanitize_log_metadata
 
 class AuditLog(models.Model):
     id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -30,6 +31,11 @@ class AuditLog(models.Model):
         # Imutabilidade estrita conforme exigências de auditoria bancária / BNA (Append-Only)
         if self.pk and AuditLog.objects.filter(pk=self.pk).exists():
             raise PermissionError("Registos de auditoria são estritamente imutáveis e não podem ser alterados.")
+        
+        # Higienização de segurança de metadados para evitar vazamento de PII em logs
+        if self.metadata:
+            self.metadata = sanitize_log_metadata(self.metadata)
+
         super().save(*args, **kwargs)
 
     def __str__(self):

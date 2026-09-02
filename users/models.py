@@ -1,8 +1,9 @@
 from django.db import models
 import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.db import models
 from django.utils import timezone
+from security.encryption import EncryptedCharField, compute_blind_index
+from security.masking import mask_doc_number, mask_phone
 
 
 class UserManager(BaseUserManager):
@@ -130,7 +131,8 @@ class IdentityDocument(models.Model):
         User, on_delete=models.CASCADE, related_name='identity_document'
     )
     doc_type     = models.CharField(max_length=15, choices=DOC_TYPE)
-    doc_number   = models.CharField(max_length=50, unique=True)
+    doc_number   = EncryptedCharField(max_length=100, blank=True, null=True)
+    doc_number_hash = models.CharField(max_length=64, unique=True, null=True, blank=True, db_index=True)
     doc_country  = models.CharField(max_length=5, default='AO')
 
     # Imagens ou PDF — obrigatório pelo menos frente + verso OU pdf
@@ -152,11 +154,17 @@ class IdentityDocument(models.Model):
     class Meta:
         verbose_name = 'Documento de identidade'
 
+    def save(self, *args, **kwargs):
+        if self.doc_number:
+            self.doc_number_hash = compute_blind_index(self.doc_number)
+        super().save(*args, **kwargs)
+
+    @property
+    def masked_doc_number(self) -> str:
+        return mask_doc_number(self.doc_number)
+
     def clean(self):
         super().clean()
-        if self.doc_number and not self.doc_number.isdigit():
-            from django.core.exceptions import ValidationError
-            raise ValidationError({'doc_number': 'Este campo apenas pode conter dígitos.'})
         has_images = self.front_image and self.back_image
         has_pdf    = bool(self.pdf_file)
         if not has_images and not has_pdf:
@@ -196,7 +204,7 @@ class UserSecurity(models.Model):
 
     # 2FA (TOTP — Google Authenticator)
     two_factor_enabled      = models.BooleanField(default=False)
-    two_factor_secret       = models.CharField(max_length=32, blank=True)
+    two_factor_secret       = EncryptedCharField(max_length=128, blank=True)
     two_factor_backup_codes = models.JSONField(default=list, blank=True)
 
     # Auditoria de senha
