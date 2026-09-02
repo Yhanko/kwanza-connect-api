@@ -21,17 +21,16 @@ class NotificationListView(APIView):
 
     @extend_schema(tags=['Notificações'])
     def get(self, request):
-        repo = DjangoNotificationRepository()
-        limit  = int(request.query_params.get('limit', 20))
+        limit = int(request.query_params.get('limit', 50))
         only_unread = request.query_params.get('unread') == 'true'
         
-        qs     = GetUserNotificationsUseCase(repo).execute(
-            user_id=request.user.id, 
-            limit=limit, 
-            only_unread=only_unread
-        )
-        paginator  = StandardPagination()
-        page       = paginator.paginate_queryset(qs, request)
+        qs = DjangoNotification.objects.filter(recipient=request.user).select_related('actor')
+        if only_unread:
+            qs = qs.filter(is_read=False)
+        qs = qs.order_by('-created_at')
+        
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
         serializer = NotificationSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
@@ -44,7 +43,15 @@ class NotificationMarkReadView(APIView):
         """Marca uma ou todas as notificações como lidas."""
         repo = DjangoNotificationRepository()
         ws_service = ChannelsWebSocketService()
-        notif_id = uuid.UUID(notification_id) if notification_id else None
+        
+        raw_id = notification_id or request.data.get('notification_id') or request.data.get('id')
+        notif_id = None
+        if raw_id:
+            try:
+                notif_id = uuid.UUID(str(raw_id)) if not isinstance(raw_id, uuid.UUID) else raw_id
+            except (ValueError, TypeError):
+                notif_id = None
+
         MarkNotificationReadUseCase(repo, ws_service).execute(
             user_id=request.user.id, 
             notification_id=notif_id
@@ -83,5 +90,6 @@ class UnreadCountView(APIView):
     @extend_schema(tags=['Notificações'])
     def get(self, request):
         repo = DjangoNotificationRepository()
-        notifs = repo.list_user_notifications(user_id=request.user.id, only_unread=True)
-        return success_response(data={'unread_count': len(notifs)})
+        unread_count = repo.get_unread_count(user_id=request.user.id)
+        return success_response(data={'unread_count': unread_count})
+

@@ -223,8 +223,9 @@ class UserSecurity(models.Model):
             hashed_codes.append(hashlib.sha256(code.encode()).hexdigest())
 
         self.two_factor_backup_codes = hashed_codes
-        self.save(update_fields=['two_factor_backup_codes'])
+        self.save()
         return plain_codes
+
 
     def verify_and_consume_backup_code(self, raw_code: str) -> bool:
         """

@@ -8,15 +8,18 @@ from users.infra.serializers import PublicUserSerializer
 
 class NotificationSerializer(serializers.ModelSerializer):
     actor = PublicUserSerializer(read_only=True)
+    message = serializers.CharField(source='body', read_only=True)
+    notif_type = serializers.CharField(source='type', read_only=True)
 
     class Meta:
         model  = Notification
         fields = [
-            'id', 'recipient', 'actor', 'type',
-            'title', 'body', 'payload', 'is_read',
+            'id', 'recipient', 'actor', 'type', 'notif_type',
+            'title', 'body', 'message', 'payload', 'is_read',
             'read_at', 'created_at'
         ]
         read_only_fields = fields
+
 
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer):
