@@ -9,6 +9,9 @@ from .controllers.compliance_views import (
     RunDRDrillView,
     VulnerabilityScanView,
     TriggerVulnerabilityScanView,
+    ValidateAngolanIBANView,
+    ExportUIFSARReportView,
+    AuditChainIntegrityView,
 )
 
 urlpatterns = [
@@ -20,6 +23,15 @@ urlpatterns = [
     
     # Resolver ou escalar relatório SAR para a UIF
     path('compliance/reports/<uuid:report_id>/resolve/', ResolveSuspiciousActivityReportView.as_view(), name='compliance-report-resolve'),
+
+    # Exportar formalmente relatório SAR para envio à UIF Angola (JSON / XML)
+    path('compliance/reports/<uuid:report_id>/export-uif/', ExportUIFSARReportView.as_view(), name='compliance-report-export-uif'),
+
+    # Validação oficial de IBAN angolano (AO06 - ISO 7064 MOD 97-10 e catálogo BNA/EMIS)
+    path('compliance/validate-iban/', ValidateAngolanIBANView.as_view(), name='compliance-validate-iban'),
+
+    # Ateste de Integridade Criptográfica da Trilha de Auditoria (Lei n.º 05/20 Art. 38)
+    path('compliance/audit-chain/verify/', AuditChainIntegrityView.as_view(), name='compliance-audit-chain-verify'),
 
     # Auditoria de Infraestrutura e Redes Seguras (Sandbox BNA)
     path('compliance/infra-security/', InfraSecurityStatusView.as_view(), name='compliance-infra-security'),
@@ -33,6 +45,7 @@ urlpatterns = [
     path('compliance/vulnerabilities/', VulnerabilityScanView.as_view(), name='compliance-vulnerabilities-status'),
     path('compliance/vulnerabilities/scan/', TriggerVulnerabilityScanView.as_view(), name='compliance-vulnerabilities-trigger-scan'),
 ]
+
 
 
 
